@@ -1,78 +1,140 @@
-/* OpsPulse dashboard: card grid, search, execution modal, SSE streaming. */
+/* OpsPulse dashboard: unified card grid, tag filter chips, execution modal,
+ * SSE streaming. Tags carry the color; icons are bundled SVGs. */
 (() => {
   "use strict";
 
   const API = "/api/v1";
   let actions = [];
+  let tags = [];               // [{id,name,color,type}]
+  let activeFunc = null;       // one function tag id, or null
+  let activeTeam = null;       // one team tag id, or null
   let current = null;          // action open in the modal
   let eventSource = null;
+  const dynState = {};         // paramName -> "loading" | "ok" | "error"
 
   const el = (id) => document.getElementById(id);
   const board = el("board");
+  const filterBar = el("filter-bar");
   const search = el("search");
   const modal = el("modal");
-
-  const COLORS = new Set([
-    "slate", "indigo", "blue", "green", "red", "amber", "purple", "cyan", "pink",
-  ]);
-  const accent = (c) => "accent-" + (COLORS.has(c) ? c : "indigo");
+  const icon = (key, size) => (window.OpsIcons ? window.OpsIcons.render(key, size) : "");
+  const tagClass = (color) => "tag-" + (color || "slate");
 
   // ---------------------------------------------------------------- load
   async function load() {
     try {
-      const res = await fetch(`${API}/actions`);
-      actions = await res.json();
+      const [aRes, tRes] = await Promise.all([
+        fetch(`${API}/actions`),
+        fetch(`${API}/tags`),
+      ]);
+      actions = await aRes.json();
+      tags = await tRes.json();
+      renderFilters();
       render();
     } catch (e) {
       board.innerHTML = `<div class="empty">Failed to load actions.</div>`;
     }
   }
 
+  // ---------------------------------------------------------------- filters
+  const funcTags = () => tags.filter((t) => t.type !== "team");
+  const teamTags = () => tags.filter((t) => t.type === "team");
+
+  function renderFilters() {
+    filterBar.innerHTML = "";
+    filterBar.appendChild(allChip());
+    for (const t of funcTags()) filterBar.appendChild(funcChip(t));
+    if (teamTags().length) {
+      const sep = document.createElement("span");
+      sep.className = "filter-sep";
+      filterBar.appendChild(sep);
+      for (const t of teamTags()) filterBar.appendChild(teamChip(t));
+    }
+  }
+
+  function allChip() {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip chip-all" + (!activeFunc && !activeTeam ? " active" : "");
+    b.textContent = "All";
+    b.addEventListener("click", () => { activeFunc = null; activeTeam = null; renderFilters(); render(); });
+    return b;
+  }
+
+  function funcChip(t) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip " + tagClass(t.color) + (activeFunc === t.id ? " active" : "");
+    b.textContent = t.name;
+    b.addEventListener("click", () => {
+      activeFunc = activeFunc === t.id ? null : t.id;   // single-select
+      renderFilters(); render();
+    });
+    return b;
+  }
+
+  function teamChip(t) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip chip-team" + (activeTeam === t.id ? " active" : "");
+    b.textContent = t.name;
+    b.addEventListener("click", () => {
+      activeTeam = activeTeam === t.id ? null : t.id;   // single-select
+      renderFilters(); render();
+    });
+    return b;
+  }
+
+  // ---------------------------------------------------------------- grid
   function render() {
     const q = search.value.trim().toLowerCase();
     const filtered = actions.filter((a) => {
+      const ids = a.tags || [];
+      // Function + team combine with AND: an action must carry each selected one.
+      if (activeFunc && !ids.includes(activeFunc)) return false;
+      if (activeTeam && !ids.includes(activeTeam)) return false;
       if (!q) return true;
+      const tagNames = (a.tag_details || []).map((t) => t.name).join(" ").toLowerCase();
       return (
         (a.title || "").toLowerCase().includes(q) ||
         (a.description || "").toLowerCase().includes(q) ||
-        (a.category || "").toLowerCase().includes(q)
+        tagNames.includes(q)
       );
     });
 
     if (!filtered.length) {
       board.innerHTML = `<div class="empty">${
-        actions.length ? "No actions match your search." :
+        actions.length ? "No actions match your filter." :
         "No actions configured yet. Head to <a href='/admin'>Admin</a> to create one."
       }</div>`;
       return;
     }
 
-    // Group by category.
-    const groups = {};
-    for (const a of filtered) (groups[a.category || "General"] ||= []).push(a);
-
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    for (const a of filtered) grid.appendChild(cardEl(a));
     board.innerHTML = "";
-    for (const cat of Object.keys(groups).sort()) {
-      const title = document.createElement("div");
-      title.className = "section-title";
-      title.textContent = cat;
-      board.appendChild(title);
-
-      const grid = document.createElement("div");
-      grid.className = "grid";
-      for (const a of groups[cat]) grid.appendChild(cardEl(a));
-      board.appendChild(grid);
-    }
+    board.appendChild(grid);
   }
 
   function cardEl(a) {
+    const details = a.tag_details || [];
+    const func = details.find((t) => t.type !== "team");
+    const team = details.find((t) => t.type === "team");
     const card = document.createElement("div");
-    card.className = "card " + accent(a.color);
+    card.className = "card" + (func ? " " + tagClass(func.color) : "");
+    const funcPill = func
+      ? `<div class="card-tags"><span class="tag-pill ${tagClass(func.color)}">${escapeHtml(func.name)}</span></div>`
+      : "";
+    const teamBadge = team ? `<span class="team-badge">${escapeHtml(team.name)}</span>` : "";
     card.innerHTML = `
-      <div class="card-icon">${escapeHtml(a.icon || "▶️")}</div>
+      <div class="card-head">
+        <div class="card-icon">${icon(a.icon, 22)}</div>
+        ${teamBadge}
+      </div>
       <div class="card-title">${escapeHtml(a.title)}</div>
       <div class="card-desc">${escapeHtml(a.description || "")}</div>
-      <span class="card-tag">${escapeHtml(a.category || "General")}</span>`;
+      ${funcPill}`;
     card.addEventListener("click", () => openModal(a));
     return card;
   }
@@ -81,7 +143,11 @@
   function openModal(a) {
     current = a;
     closeStream();
-    el("m-icon").textContent = a.icon || "▶️";
+    Object.keys(dynState).forEach((k) => delete dynState[k]);
+    const func = (a.tag_details || []).find((t) => t.type !== "team");
+    const iconBox = el("m-icon");
+    iconBox.className = "card-icon" + (func ? " " + tagClass(func.color) : "");
+    iconBox.innerHTML = icon(a.icon, 24);
     el("m-title").textContent = a.title;
     el("m-desc").textContent = a.description || "";
     el("m-run").classList.add("hidden");
@@ -89,9 +155,7 @@
     el("m-artifacts").innerHTML = "";
     setStatus("PENDING");
     buildForm(a);
-    const btn = el("m-execute");
-    btn.disabled = false;
-    btn.textContent = "▶ Execute";
+    gateExecute();
     modal.classList.add("open");
   }
 
@@ -109,6 +173,9 @@
       return;
     }
     for (const p of a.parameters) form.appendChild(fieldEl(a, p));
+    // Re-evaluate the Execute gate as the user fills the form.
+    form.addEventListener("input", gateExecute);
+    form.addEventListener("change", gateExecute);
   }
 
   function fieldEl(action, p) {
@@ -119,8 +186,20 @@
     const id = "f_" + p.name;
 
     if (p.type === "checkbox") {
+      if (p.options && p.options.length) {
+        // Multi-select checkbox group.
+        const defaults = String(p.default ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        wrap.innerHTML = `<label>${escapeHtml(label)}${req}</label>`;
+        const group = document.createElement("div");
+        group.className = "radio-row";
+        group.innerHTML = p.options.map((o) =>
+          `<label><input type="checkbox" name="cb_${p.name}" value="${escapeAttr(o)}" ${
+            defaults.includes(o) ? "checked" : ""}/> ${escapeHtml(o)}</label>`).join("");
+        wrap.appendChild(group);
+        return wrap;
+      }
       wrap.innerHTML = `<div class="check-row">
-        <input type="checkbox" id="${id}" data-name="${p.name}" ${p.default ? "checked" : ""}/>
+        <input type="checkbox" id="${id}" data-name="${p.name}" ${truthy(p.default) ? "checked" : ""}/>
         <label for="${id}" style="margin:0;">${escapeHtml(label)}${req}</label></div>`;
       return wrap;
     }
@@ -151,6 +230,7 @@
     } else {
       const input = document.createElement("input");
       input.type = p.type === "number" ? "number" : "text";
+      if (p.type === "number") input.min = "0";
       input.id = id; input.dataset.name = p.name;
       if (p.default != null) input.value = p.default;
       wrap.appendChild(input);
@@ -159,22 +239,64 @@
   }
 
   async function loadDynamic(action, p, sel) {
+    dynState[p.name] = "loading";
+    gateExecute();
     try {
       const url = `${API}/dynamic-options/${encodeURIComponent(p.dynamic_type || "custom")}` +
         `?action_id=${encodeURIComponent(action.id)}&param=${encodeURIComponent(p.name)}`;
       const res = await fetch(url);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || res.statusText);
+        throw new Error(errText(body, res.statusText));
       }
       const opts = await res.json();
-      sel.innerHTML = `<option value="">— select —</option>` +
-        opts.map((o) => `<option value="${escapeAttr(o.value)}">${escapeHtml(o.label)}</option>`).join("");
-      if (p.default) sel.value = p.default;
-      if (!opts.length) sel.innerHTML = `<option value="">(no options returned)</option>`;
+      if (!opts.length) {
+        sel.innerHTML = `<option value="">(no options returned)</option>`;
+        dynState[p.name] = "error";   // nothing selectable -> block execution
+      } else {
+        sel.innerHTML = `<option value="">— select —</option>` +
+          opts.map((o) => `<option value="${escapeAttr(o.value)}">${escapeHtml(o.label)}</option>`).join("");
+        if (p.default) sel.value = p.default;
+        dynState[p.name] = "ok";
+      }
     } catch (e) {
       sel.innerHTML = `<option value="">⚠ ${escapeHtml(e.message)}</option>`;
+      dynState[p.name] = "error";
     }
+    gateExecute();
+  }
+
+  // Enable Execute only when required fields are filled and every dynamic
+  // dropdown has loaded successfully.
+  function gateExecute() {
+    let reason = "";
+    for (const p of (current && current.parameters) || []) {
+      if (p.type === "dynamic_select") {
+        const st = dynState[p.name];
+        if (st === "loading") { reason = "Loading options…"; break; }
+        if (st === "error") { reason = `"${p.label || p.name}" couldn't load`; break; }
+      }
+      if (p.required && paramEmpty(p)) { reason = `Fill required field: ${p.label || p.name}`; break; }
+    }
+    el("m-execute").disabled = !!reason;
+    const note = el("m-gate");
+    note.textContent = reason;
+    note.classList.toggle("hidden", !reason);
+  }
+
+  function paramEmpty(p) {
+    if (p.type === "checkbox") {
+      if (p.options && p.options.length) {
+        return document.querySelectorAll(`input[name="cb_${p.name}"]:checked`).length === 0;
+      }
+      const node = el("f_" + p.name);
+      return !(node && node.checked);
+    }
+    if (p.type === "radio") {
+      return !document.querySelector(`input[name="f_${p.name}"]:checked`);
+    }
+    const node = el("f_" + p.name);
+    return !node || String(node.value).trim() === "";
   }
 
   function collectValues() {
@@ -182,7 +304,12 @@
     if (!current.parameters) return values;
     for (const p of current.parameters) {
       if (p.type === "checkbox") {
-        values[p.name] = el("f_" + p.name).checked;
+        if (p.options && p.options.length) {
+          values[p.name] = [...document.querySelectorAll(`input[name="cb_${p.name}"]:checked`)]
+            .map((n) => n.value);
+        } else {
+          values[p.name] = el("f_" + p.name).checked;
+        }
       } else if (p.type === "radio") {
         const chosen = document.querySelector(`input[name="f_${p.name}"]:checked`);
         values[p.name] = chosen ? chosen.value : "";
@@ -212,12 +339,12 @@
         body: JSON.stringify({ values: collectValues() }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || "Execution failed to start");
+      if (!res.ok) throw new Error(errText(body, "Execution failed to start"));
       execId = body.execution_id;
     } catch (e) {
       appendLine(e.message, "err");
       setStatus("FAILED");
-      btn.disabled = false;
+      gateExecute();
       return;
     }
     stream(execId);
@@ -227,7 +354,6 @@
     closeStream();
     setStatus("RUNNING");
     eventSource = new EventSource(`${API}/stream/${execId}`);
-
     eventSource.addEventListener("stdout", (e) => appendLine(JSON.parse(e.data).line));
     eventSource.addEventListener("stderr", (e) => appendLine(JSON.parse(e.data).line, "err"));
     eventSource.addEventListener("status", (e) => {
@@ -235,13 +361,10 @@
       setStatus(data.status);
       renderArtifacts(data.artifacts || []);
       closeStream();
-      el("m-execute").disabled = false;
+      gateExecute();
     });
     eventSource.onerror = () => {
-      // Stream closed (normal on completion) — only surface if still running.
-      if (el("m-status").dataset.state === "RUNNING") {
-        appendLine("[connection closed]", "sys");
-      }
+      if (el("m-status").dataset.state === "RUNNING") appendLine("[connection closed]", "sys");
       closeStream();
     };
   }
@@ -257,7 +380,7 @@
       const a = document.createElement("a");
       a.className = "btn btn-success btn-block";
       a.href = `${API}/download/${art.file_id}`;
-      a.textContent = `⬇ Download ${art.filename} (${fmtSize(art.size)})`;
+      a.innerHTML = `${icon("download", 16)} Download ${escapeHtml(art.filename)} (${fmtSize(art.size)})`;
       a.setAttribute("download", art.filename);
       box.appendChild(a);
     }
@@ -298,12 +421,27 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
   const escapeAttr = escapeHtml;
+  const truthy = (v) => v === true || ["1", "true", "yes", "on"].includes(String(v).trim().toLowerCase());
+
+  // FastAPI errors: detail is a string (HTTPException) or a list of {loc,msg}
+  // objects (422 validation). Render either as readable text.
+  function errText(body, fallback) {
+    const d = body && body.detail;
+    if (typeof d === "string") return d;
+    if (Array.isArray(d)) {
+      return d.map((e) => {
+        const loc = Array.isArray(e.loc) ? e.loc.filter((x) => x !== "body").join(".") : "";
+        return (loc ? loc + ": " : "") + (e.msg || JSON.stringify(e));
+      }).join("; ");
+    }
+    if (d && typeof d === "object") return d.msg || JSON.stringify(d);
+    return fallback || "Request failed";
+  }
 
   // ---------------------------------------------------------------- events
   search.addEventListener("input", render);
   el("m-execute").addEventListener("click", execute);
-  document.querySelectorAll("[data-close]").forEach((b) =>
-    b.addEventListener("click", closeModal));
+  document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeModal));
   modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modal.classList.contains("open")) closeModal();

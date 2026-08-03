@@ -16,7 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import __version__
 from .config import settings
 from .database import init_db
-from .routers import actions, admin, download, dynamic, execute
+from .routers import actions, admin, download, dynamic, execute, tags
 
 logger = logging.getLogger("opspulse")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -35,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(actions.router)
+app.include_router(tags.router)
 app.include_router(execute.router)
 app.include_router(dynamic.router)
 app.include_router(download.router)
@@ -48,6 +49,16 @@ def _startup() -> None:
         logger.warning(warning)
     logger.info("OpsPulse %s started. DATA_DIR=%s SCRIPTS_DIR=%s",
                 __version__, settings.data_dir, settings.scripts_dir)
+
+
+@app.middleware("http")
+async def _revalidate_static(request, call_next):
+    """Force browsers to revalidate static assets (ETag/Last-Modified) instead
+    of serving stale JS/CSS from heuristic cache — assets update in place."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.get("/healthz", tags=["meta"])

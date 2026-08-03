@@ -93,3 +93,34 @@ def test_build_inputs_checkbox_false_omits_flag():
     env, cli = _build_inputs(params, {"force": False})
     assert env["force"] == "false"
     assert "--force" not in cli
+
+
+def test_build_inputs_checkbox_group_multi():
+    params = [Parameter(name="envs", type=ParamType.checkbox, options=["dev", "prod", "qa"])]
+    env, cli = _build_inputs(params, {"envs": ["dev", "prod"]})
+    assert env["envs"] == "dev,prod"
+    assert cli == ["--envs", "dev", "--envs", "prod"]
+
+
+# --------------------------------------------------------------- validators
+def test_number_default_negative_rejected():
+    with pytest.raises(Exception):
+        Parameter(name="n", type=ParamType.number, default="-3")
+
+
+def test_number_default_non_numeric_rejected():
+    with pytest.raises(Exception):
+        Parameter(name="n", type=ParamType.number, default="abc")
+
+
+def test_select_default_must_be_in_options():
+    with pytest.raises(Exception):
+        Parameter(name="s", type=ParamType.select, options=["a", "b"], default="c")
+    # valid default is accepted
+    Parameter(name="s", type=ParamType.select, options=["a", "b"], default="a")
+
+
+def test_checkbox_group_default_subset():
+    with pytest.raises(Exception):
+        Parameter(name="c", type=ParamType.checkbox, options=["a", "b"], default="a,z")
+    Parameter(name="c", type=ParamType.checkbox, options=["a", "b"], default="a,b")

@@ -18,6 +18,11 @@ live, and download generated artifacts — no CLI access and no handling of cred
   the parameter *and* as a **`--name value` CLI arg**. Checkboxes become `true`/`false` env
   values and a bare `--name` flag when true.
 - **Artifacts:** anything a script writes to `$OUTPUTS_DIR` becomes a download button.
+- **Tags** are first-class, colored labels managed in Admin. Each action carries one or more
+  tags; the tag color renders consistently on the card and in the dashboard filter chips.
+- **Icons** are chosen from a bundled outline-SVG set (no emoji, no CDN) via an icon picker.
+- **Light / dark theme** with a header toggle, persisted per browser (respects the OS setting
+  until the user picks one).
 - **Dynamic dropdowns are the only outbound API calls** — fetched live from GitLab/OpenShift
   server-side with the secret token injected, never exposed to the browser.
 
@@ -84,6 +89,9 @@ A `dynamic_select` parameter declares a source. Built-in sources prefill everyth
 | `/api/v1/actions` | GET | Public list (secret templates stripped). |
 | `/api/v1/actions` | POST | Admin. Create. |
 | `/api/v1/actions/{id}` | PUT / DELETE | Admin. |
+| `/api/v1/tags` | GET | Public list (filter chips + card pills). |
+| `/api/v1/tags` | POST | Admin. Create `{name, color}`. |
+| `/api/v1/tags/{id}` | PUT / DELETE | Admin. Delete also detaches the tag from actions. |
 | `/api/v1/dynamic-options/{type}?action_id=&param=` | GET | Live dropdown fetch. |
 | `/api/v1/execute/{action_id}` | POST | Start execution → `execution_id`. |
 | `/api/v1/stream/{execution_id}` | GET | SSE stdout/stderr + terminal status event. |

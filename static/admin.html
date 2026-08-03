@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpsPulse — Admin Builder</title>
-  <link rel="stylesheet" href="/static/css/app.css" />
+  <script>(function(){try{var t=localStorage.getItem('opspulse-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <link rel="stylesheet" href="/static/css/app.css?v=3" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>" />
 </head>
 <body>
   <header class="header">
     <div class="header-inner">
-      <div class="brand"><span class="logo">⚙️</span> OpsPulse Admin</div>
+      <div class="brand"><span class="logo">⚡</span> OpsPulse Admin</div>
       <span class="grow"></span>
+      <button id="theme-toggle" class="btn-icon" type="button" aria-label="Toggle theme">☾</button>
       <a class="btn btn-ghost btn-sm" href="/">← Dashboard</a>
       <button id="logout" class="btn btn-ghost btn-sm hidden">Log out</button>
     </div>
@@ -34,48 +36,83 @@
 
   <!-- Builder -->
   <main id="builder-view" class="container hidden">
-    <div class="between" style="margin:24px 0 8px;">
+    <!-- Tag bank -->
+    <div class="between" style="margin:26px 0 10px;">
+      <div><h2 style="margin:0;">Tags</h2><div class="muted small">Reusable, colored labels for grouping and filtering actions.</div></div>
+      <button id="new-tag" class="btn btn-ghost">+ New Tag</button>
+    </div>
+    <div id="tag-list" class="param-card"></div>
+
+    <div class="divider"></div>
+
+    <!-- Actions -->
+    <div class="between" style="margin:10px 0;">
       <h2 style="margin:0;">Actions</h2>
       <button id="new-action" class="btn btn-primary">+ New Action</button>
     </div>
     <div id="action-list" class="stack"></div>
   </main>
 
-  <!-- Editor modal -->
+  <!-- Tag editor modal -->
+  <div id="tag-editor" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <span class="modal-title" id="tag-editor-title">New Tag</span>
+        <button class="close-x" data-close-tag aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="t-id" />
+        <div class="field"><label>Name <span class="req">*</span></label>
+          <input type="text" id="t-name" placeholder="Deployments" /></div>
+        <div class="field"><label>Type</label>
+          <select id="t-type">
+            <option value="function">Function — colored, groups actions</option>
+            <option value="team">Team — colorless badge, top-right</option>
+          </select></div>
+        <div class="field" id="t-color-field"><label>Color</label>
+          <div id="t-swatches" class="swatches"></div></div>
+        <div class="field"><label>Preview</label><div id="t-preview"></div></div>
+      </div>
+      <div class="modal-footer">
+        <button id="delete-tag" class="btn btn-danger hidden">Delete</button>
+        <span class="grow"></span>
+        <button class="btn btn-ghost" data-close-tag>Cancel</button>
+        <button id="save-tag" class="btn btn-primary">Save Tag</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action editor modal -->
   <div id="editor" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:720px;">
       <div class="modal-header">
-        <span class="card-icon">🛠️</span>
-        <div class="modal-title" id="editor-title">New Action</div>
+        <span class="modal-title" id="editor-title">New Action</span>
         <button class="close-x" data-close-editor aria-label="Close">×</button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="e-id" />
-        <div class="row">
-          <div class="field"><label>Title <span class="req">*</span></label>
-            <input type="text" id="e-title" placeholder="Deploy service" /></div>
-          <div class="field"><label>Icon (emoji)</label>
-            <input type="text" id="e-icon" placeholder="🚀" /></div>
-        </div>
+        <div class="field"><label>Title <span class="req">*</span></label>
+          <input type="text" id="e-title" placeholder="Deploy service" /></div>
         <div class="field"><label>Description</label>
           <input type="text" id="e-description" placeholder="What this action does" /></div>
+
+        <div class="field"><label>Icon</label>
+          <div id="e-icons" class="icon-grid"></div></div>
+
         <div class="row">
-          <div class="field"><label>Category / Tag</label>
-            <input type="text" id="e-category" placeholder="Deployments" /></div>
-          <div class="field"><label>Button color</label>
-            <select id="e-color">
-              <option>indigo</option><option>blue</option><option>green</option>
-              <option>red</option><option>amber</option><option>purple</option>
-              <option>cyan</option><option>pink</option><option>slate</option>
-            </select></div>
+          <div class="field"><label>Function tag</label>
+            <div id="e-func-tags" class="tag-select"></div></div>
+          <div class="field"><label>Team</label>
+            <div id="e-team-tags" class="tag-select"></div></div>
         </div>
+        <div class="hint" style="margin:-4px 0 4px;">A button has at most one function tag and one team.
+          <a href="#" id="jump-new-tag">Create a tag</a> if the bank is empty.</div>
 
         <div class="divider"></div>
         <div class="row">
-          <div class="field"><label>Script path <span class="req">*</span></label>
-            <input type="text" id="e-script" list="scripts-list" placeholder="hello.py" />
-            <datalist id="scripts-list"></datalist>
-            <div class="hint">Relative to SCRIPTS_DIR. Pick from discovered scripts or type a path.</div></div>
+          <div class="field"><label>Script <span class="req">*</span></label>
+            <select id="e-script"></select>
+            <div class="hint">Discovered under SCRIPTS_DIR.</div></div>
           <div class="field" style="max-width:200px;"><label>Interpreter</label>
             <select id="e-interpreter">
               <option value="auto">auto (by extension)</option>
@@ -103,6 +140,8 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/js/admin.js"></script>
+  <script src="/static/js/theme.js?v=3"></script>
+  <script src="/static/js/icons.js?v=3"></script>
+  <script src="/static/js/admin.js?v=3"></script>
 </body>
 </html>

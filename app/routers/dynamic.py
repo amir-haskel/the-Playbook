@@ -1,12 +1,40 @@
 """Live dropdown option fetching (the only outbound-API endpoint)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from .. import http_client, store
-from ..models import Parameter
+from ..auth import admin_required
+from ..models import Parameter, ParamType
 
 router = APIRouter(prefix="/api/v1", tags=["dynamic"])
+
+
+class DropdownTest(BaseModel):
+    dynamic_type: str | None = None
+    endpoint: str | None = None
+    response_key: str | None = None
+    auth_header: str | None = None
+
+
+@router.post("/dynamic-options/test", dependencies=[Depends(admin_required)])
+async def test_dropdown(cfg: DropdownTest) -> dict:
+    """Admin: run a dynamic dropdown's config on demand (before saving the
+    action) and return the fetched options, or a readable error."""
+    param = Parameter(
+        name="_test",
+        type=ParamType.dynamic_select,
+        dynamic_type=cfg.dynamic_type,
+        endpoint=cfg.endpoint,
+        response_key=cfg.response_key,
+        auth_header=cfg.auth_header,
+    )
+    try:
+        options = await http_client.fetch_options(param)
+    except http_client.DynamicOptionError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return {"count": len(options), "options": [o.model_dump() for o in options]}
 
 
 @router.get("/dynamic-options/{type}")

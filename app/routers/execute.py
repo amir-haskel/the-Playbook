@@ -31,6 +31,23 @@ async def execute_action(action_id: str, payload: ExecuteRequest) -> dict:
             detail=f"Missing required parameter(s): {', '.join(missing)}",
         )
 
+    # Number params must be numeric and non-negative.
+    for p in action.parameters:
+        if p.type.value != "number":
+            continue
+        value = payload.values.get(p.name, p.default)
+        if _is_blank(value):
+            continue
+        try:
+            if float(value) < 0:
+                raise HTTPException(
+                    status_code=422, detail=f"'{p.name}' must be 0 or greater"
+                )
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=422, detail=f"'{p.name}' must be a number"
+            )
+
     execution = manager.create(action)
     manager.start(execution, action, payload.values)
     return {"execution_id": execution.id, "status": execution.status.value}

@@ -4,7 +4,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ParamType(str, Enum):
@@ -55,13 +55,64 @@ class Parameter(BaseModel):
     def label_or_name(self) -> str:
         return self.label or self.name
 
+    @model_validator(mode="after")
+    def _check_defaults(self) -> "Parameter":
+        """Validate defaults against options and numeric constraints."""
+        name = self.name
+        d = self.default
+        has_default = d is not None and not (isinstance(d, str) and d.strip() == "")
+
+        if self.type == ParamType.number and has_default:
+            try:
+                n = float(str(d))
+            except (TypeError, ValueError):
+                raise ValueError(f"parameter '{name}': default must be a number")
+            if n < 0:
+                raise ValueError(f"parameter '{name}': default must be 0 or greater")
+
+        if self.type in (ParamType.select, ParamType.radio) and has_default:
+            if self.options and str(d) not in self.options:
+                raise ValueError(
+                    f"parameter '{name}': default '{d}' is not in the options list"
+                )
+
+        # Checkbox with options is a multi-select group; each default must be a
+        # valid option. A checkbox with no options is a plain boolean flag.
+        if self.type == ParamType.checkbox and self.options and has_default:
+            defaults = [x.strip() for x in str(d).split(",") if x.strip()]
+            bad = [x for x in defaults if x not in self.options]
+            if bad:
+                raise ValueError(
+                    f"parameter '{name}': default(s) {bad} not in the options list"
+                )
+        return self
+
+
+class TagType(str, Enum):
+    function = "function"   # colored, groups actions by purpose (max 1 per action)
+    team = "team"           # colorless, uppercase, top-right badge (0 or 1 per action)
+
+
+class TagBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=40)
+    color: str = "slate"   # a palette key (see TAG_COLORS on the frontend)
+    type: TagType = TagType.function
+
+
+class TagCreate(TagBase):
+    pass
+
+
+class Tag(TagBase):
+    id: str
+    created_at: str
+
 
 class ActionBase(BaseModel):
     title: str
     description: str = ""
-    icon: str = ""
-    color: str = "slate"
-    category: str = "General"
+    icon: str = "box"                 # icon key (see icons.js), not an emoji
+    tags: list[str] = Field(default_factory=list)   # tag ids from the bank
     script_path: str
     interpreter: Interpreter = Interpreter.auto
     parameters: list[Parameter] = Field(default_factory=list)

@@ -23,15 +23,24 @@ CREATE TABLE IF NOT EXISTS actions (
     id            TEXT PRIMARY KEY,
     title         TEXT NOT NULL,
     description   TEXT NOT NULL DEFAULT '',
-    icon          TEXT NOT NULL DEFAULT '',
-    color         TEXT NOT NULL DEFAULT 'slate',
-    category      TEXT NOT NULL DEFAULT 'General',
+    icon          TEXT NOT NULL DEFAULT 'box',
+    color         TEXT NOT NULL DEFAULT 'slate',   -- legacy, unused
+    category      TEXT NOT NULL DEFAULT 'General',  -- legacy, unused
+    tags          TEXT NOT NULL DEFAULT '[]',       -- JSON array of tag ids
     script_path   TEXT NOT NULL,
     interpreter   TEXT NOT NULL DEFAULT 'auto',
     parameters    TEXT NOT NULL DEFAULT '[]',   -- JSON array
     output_subdir TEXT NOT NULL DEFAULT '',
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    color      TEXT NOT NULL DEFAULT 'slate',
+    type       TEXT NOT NULL DEFAULT 'function',
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS executions (
@@ -73,6 +82,14 @@ def init_db() -> None:
     conn = get_conn()
     with _lock:
         conn.executescript(SCHEMA)
+        # Lightweight migration: add the tags column to pre-existing actions
+        # tables that were created before tags existed.
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(actions)")}
+        if "tags" not in cols:
+            conn.execute("ALTER TABLE actions ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
+        tag_cols = {row["name"] for row in conn.execute("PRAGMA table_info(tags)")}
+        if "type" not in tag_cols:
+            conn.execute("ALTER TABLE tags ADD COLUMN type TEXT NOT NULL DEFAULT 'function'")
 
 
 def execute(sql: str, params: Iterable[Any] = ()) -> None:

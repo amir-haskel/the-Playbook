@@ -196,10 +196,18 @@ def _build_inputs(
             continue
 
         if param.type.value == "checkbox":
-            truthy = _as_bool(raw)
-            env[param.name] = "true" if truthy else "false"
-            if truthy:
-                cli.append(f"--{param.name}")
+            if param.options:
+                # Multi-select checkbox group -> repeated CLI args, comma env.
+                vals = raw if isinstance(raw, list) else [raw]
+                vals = [str(v) for v in vals if v not in (None, "")]
+                env[param.name] = ",".join(vals)
+                for v in vals:
+                    cli.extend([f"--{param.name}", v])
+            else:
+                truthy = _as_bool(raw)
+                env[param.name] = "true" if truthy else "false"
+                if truthy:
+                    cli.append(f"--{param.name}")
             continue
 
         text = str(raw)

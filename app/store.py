@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 
 from . import database as db
-from .models import Action, ActionBase, Parameter
+from .models import Action, ActionBase, Parameter, Tag, TagBase
 
 
 def _utcnow() -> str:
@@ -15,13 +15,14 @@ def _utcnow() -> str:
 
 def _row_to_action(row: sqlite3.Row) -> Action:
     params = [Parameter(**p) for p in db.loads(row["parameters"])]
+    keys = row.keys()
+    tags = db.loads(row["tags"]) if "tags" in keys else []
     return Action(
         id=row["id"],
         title=row["title"],
         description=row["description"],
-        icon=row["icon"],
-        color=row["color"],
-        category=row["category"],
+        icon=row["icon"] or "box",
+        tags=tags,
         script_path=row["script_path"],
         interpreter=row["interpreter"],
         parameters=params,
@@ -45,17 +46,17 @@ def create_action(data: ActionBase) -> Action:
     now = _utcnow()
     action_id = uuid.uuid4().hex
     params_json = db.dumps([p.model_dump(mode="json") for p in data.parameters])
+    tags_json = db.dumps(data.tags)
     db.execute(
-        "INSERT INTO actions (id, title, description, icon, color, category, "
+        "INSERT INTO actions (id, title, description, icon, tags, "
         "script_path, interpreter, parameters, output_subdir, created_at, "
-        "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
             action_id,
             data.title,
             data.description,
             data.icon,
-            data.color,
-            data.category,
+            tags_json,
             data.script_path,
             data.interpreter.value,
             params_json,
@@ -73,16 +74,16 @@ def update_action(action_id: str, data: ActionBase) -> Action | None:
     if get_action(action_id) is None:
         return None
     params_json = db.dumps([p.model_dump(mode="json") for p in data.parameters])
+    tags_json = db.dumps(data.tags)
     db.execute(
-        "UPDATE actions SET title=?, description=?, icon=?, color=?, category=?, "
+        "UPDATE actions SET title=?, description=?, icon=?, tags=?, "
         "script_path=?, interpreter=?, parameters=?, output_subdir=?, updated_at=? "
         "WHERE id=?",
         (
             data.title,
             data.description,
             data.icon,
-            data.color,
-            data.category,
+            tags_json,
             data.script_path,
             data.interpreter.value,
             params_json,
@@ -98,4 +99,60 @@ def delete_action(action_id: str) -> bool:
     if get_action(action_id) is None:
         return False
     db.execute("DELETE FROM actions WHERE id=?", (action_id,))
+    return True
+
+
+# ----------------------------------------------------------------- tags
+def _row_to_tag(row: sqlite3.Row) -> Tag:
+    keys = row.keys()
+    tag_type = row["type"] if "type" in keys else "function"
+    return Tag(
+        id=row["id"], name=row["name"], color=row["color"],
+        type=tag_type, created_at=row["created_at"],
+    )
+
+
+def list_tags() -> list[Tag]:
+    rows = db.query_all("SELECT * FROM tags ORDER BY name COLLATE NOCASE")
+    return [_row_to_tag(r) for r in rows]
+
+
+def get_tag(tag_id: str) -> Tag | None:
+    row = db.query_one("SELECT * FROM tags WHERE id=?", (tag_id,))
+    return _row_to_tag(row) if row else None
+
+
+def create_tag(data: TagBase) -> Tag:
+    tag_id = uuid.uuid4().hex
+    db.execute(
+        "INSERT INTO tags (id, name, color, type, created_at) VALUES (?,?,?,?,?)",
+        (tag_id, data.name.strip(), data.color, data.type.value, _utcnow()),
+    )
+    tag = get_tag(tag_id)
+    assert tag is not None
+    return tag
+
+
+def update_tag(tag_id: str, data: TagBase) -> Tag | None:
+    if get_tag(tag_id) is None:
+        return None
+    db.execute(
+        "UPDATE tags SET name=?, color=?, type=? WHERE id=?",
+        (data.name.strip(), data.color, data.type.value, tag_id),
+    )
+    return get_tag(tag_id)
+
+
+def delete_tag(tag_id: str) -> bool:
+    if get_tag(tag_id) is None:
+        return False
+    db.execute("DELETE FROM tags WHERE id=?", (tag_id,))
+    # Remove the deleted tag id from any actions that referenced it.
+    for action in list_actions():
+        if tag_id in action.tags:
+            remaining = [t for t in action.tags if t != tag_id]
+            db.execute(
+                "UPDATE actions SET tags=? WHERE id=?",
+                (db.dumps(remaining), action.id),
+            )
     return True
