@@ -22,7 +22,6 @@
   const teamTags = () => tags.filter((t) => t.type === "team");
 
   const PARAM_TYPES = ["text", "number", "checkbox", "radio", "select", "dynamic_select"];
-  const DYNAMIC_TYPES = ["gitlab-branches", "oc-namespaces", "custom"];
   const TAG_COLORS = ["teal", "sage", "green", "blue", "indigo", "cyan", "plum", "rose", "clay", "amber", "slate"];
 
   // ------------------------------------------------------------- auth
@@ -295,14 +294,9 @@
         <div class="hint p-cbhint hidden">A checkbox with options becomes a multi-select group.
           Leave empty for a single on/off flag. Default(s) may be comma-separated.</div></div>
       <div class="p-dynamic hidden">
-        <div class="row">
-          <div class="field" style="max-width:210px;"><label>Dynamic source</label>
-            <select class="p-dyntype">${DYNAMIC_TYPES.map((t) =>
-              `<option ${p.dynamic_type === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>
-          <div class="field"><label>Endpoint (path or URL)</label>
-            <input class="p-endpoint" type="text" placeholder="projects/42/repository/branches"
-              value="${escapeAttr(p.endpoint || "")}" /></div>
-        </div>
+        <div class="field"><label>Endpoint (URL)</label>
+          <input class="p-endpoint" type="text" placeholder="\${GITLAB_API_URL}/projects/42/repository/branches"
+            value="${escapeAttr(p.endpoint || "")}" /></div>
         <div class="row">
           <div class="field"><label>Response key</label>
             <input class="p-respkey" type="text" placeholder="[].name"
@@ -311,8 +305,11 @@
             <input class="p-auth" type="text" placeholder="PRIVATE-TOKEN: \${GITLAB_TOKEN}"
               value="${escapeAttr(p.auth_header || "")}" /></div>
         </div>
-        <div class="hint">Use <span class="mono">\${GITLAB_TOKEN}</span> / <span class="mono">\${OPENSHIFT_TOKEN}</span>
-          — injected server-side, never sent to the browser. Built-in sources prefill the rest.</div>
+        <div class="hint">Endpoint and Auth header may use <span class="mono">\${GITLAB_API_URL}</span> /
+          <span class="mono">\${GITLAB_TOKEN}</span> / <span class="mono">\${OPENSHIFT_API_URL}</span> /
+          <span class="mono">\${OPENSHIFT_TOKEN}</span> — injected server-side, never sent to the browser.
+          Response key parses the JSON, e.g. <span class="mono">[].name</span> or
+          <span class="mono">items[].metadata.name</span>.</div>
         <div class="between" style="margin-top:10px;">
           <button type="button" class="btn btn-ghost btn-sm" data-test-dd>▶ Test dropdown</button>
           <span class="dd-result small muted"></span>
@@ -350,7 +347,6 @@
         p.options = row.querySelector(".p-options").value.split(",").map((s) => s.trim()).filter(Boolean);
       }
       if (type === "dynamic_select") {
-        p.dynamic_type = row.querySelector(".p-dyntype").value;
         p.endpoint = row.querySelector(".p-endpoint").value.trim() || null;
         p.response_key = row.querySelector(".p-respkey").value.trim() || null;
         p.auth_header = row.querySelector(".p-auth").value.trim() || null;
@@ -363,7 +359,6 @@
   async function testDropdown(row) {
     const out = row.querySelector(".dd-result");
     const cfg = {
-      dynamic_type: row.querySelector(".p-dyntype").value,
       endpoint: row.querySelector(".p-endpoint").value.trim() || null,
       response_key: row.querySelector(".p-respkey").value.trim() || null,
       auth_header: row.querySelector(".p-auth").value.trim() || null,

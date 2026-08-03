@@ -96,7 +96,9 @@ def _resolve_source(param: Parameter) -> tuple[str, str, str]:
     """Return (url, auth_header_template, response_key) for a dropdown param."""
     builtin = BUILTIN_SOURCES.get(param.dynamic_type or "", {})
 
-    endpoint = param.endpoint or ""
+    # Endpoint supports ${VAR} substitution so a manually-configured dropdown
+    # can reference ${GITLAB_API_URL} / ${OPENSHIFT_API_URL} directly.
+    endpoint = secret_utils.substitute(param.endpoint or "")
     base = builtin.get("base", "")
     if endpoint.startswith(("http://", "https://")):
         url = endpoint
