@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpsPulse — Developer Dashboard</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand"><span class="logo">⚡</span> OpsPulse</div>
+      <span class="grow"></span>
+      <a class="btn btn-ghost btn-sm" href="/admin">⚙️ Admin</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <input id="search" class="searchbar" type="text"
+           placeholder="Search actions by name, description or tag…" autocomplete="off" />
+    <div id="board" class="stack"></div>
+  </main>
+
+  <!-- Execution modal -->
+  <div id="modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <span id="m-icon" class="card-icon">▶️</span>
+        <div>
+          <div id="m-title" class="modal-title">Action</div>
+          <div id="m-desc" class="muted small"></div>
+        </div>
+        <button class="close-x" data-close aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="m-form" class="stack" onsubmit="return false;"></form>
+
+        <div id="m-run" class="hidden">
+          <div class="divider"></div>
+          <div class="between" style="margin-bottom:10px;">
+            <strong>Execution</strong>
+            <span id="m-status" class="badge badge-pending">Pending</span>
+          </div>
+          <div id="m-terminal" class="terminal"></div>
+          <div id="m-artifacts" class="stack" style="margin-top:12px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close>Close</button>
+        <button id="m-execute" class="btn btn-primary">▶ Execute</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

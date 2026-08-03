@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpsPulse — Admin Builder</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand"><span class="logo">⚙️</span> OpsPulse Admin</div>
+      <span class="grow"></span>
+      <a class="btn btn-ghost btn-sm" href="/">← Dashboard</a>
+      <button id="logout" class="btn btn-ghost btn-sm hidden">Log out</button>
+    </div>
+  </header>
+
+  <!-- Login gate -->
+  <main id="login-view" class="container hidden">
+    <div style="max-width:380px;margin:80px auto;">
+      <div class="param-card">
+        <h2 style="margin-top:0;">Admin sign in</h2>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="ADMIN_PASSWORD" />
+          <div class="hint">Configured via the ADMIN_PASSWORD environment variable.</div>
+        </div>
+        <button id="login-btn" class="btn btn-primary btn-block">Sign in</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Builder -->
+  <main id="builder-view" class="container hidden">
+    <div class="between" style="margin:24px 0 8px;">
+      <h2 style="margin:0;">Actions</h2>
+      <button id="new-action" class="btn btn-primary">+ New Action</button>
+    </div>
+    <div id="action-list" class="stack"></div>
+  </main>
+
+  <!-- Editor modal -->
+  <div id="editor" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:720px;">
+      <div class="modal-header">
+        <span class="card-icon">🛠️</span>
+        <div class="modal-title" id="editor-title">New Action</div>
+        <button class="close-x" data-close-editor aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="e-id" />
+        <div class="row">
+          <div class="field"><label>Title <span class="req">*</span></label>
+            <input type="text" id="e-title" placeholder="Deploy service" /></div>
+          <div class="field"><label>Icon (emoji)</label>
+            <input type="text" id="e-icon" placeholder="🚀" /></div>
+        </div>
+        <div class="field"><label>Description</label>
+          <input type="text" id="e-description" placeholder="What this action does" /></div>
+        <div class="row">
+          <div class="field"><label>Category / Tag</label>
+            <input type="text" id="e-category" placeholder="Deployments" /></div>
+          <div class="field"><label>Button color</label>
+            <select id="e-color">
+              <option>indigo</option><option>blue</option><option>green</option>
+              <option>red</option><option>amber</option><option>purple</option>
+              <option>cyan</option><option>pink</option><option>slate</option>
+            </select></div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="row">
+          <div class="field"><label>Script path <span class="req">*</span></label>
+            <input type="text" id="e-script" list="scripts-list" placeholder="hello.py" />
+            <datalist id="scripts-list"></datalist>
+            <div class="hint">Relative to SCRIPTS_DIR. Pick from discovered scripts or type a path.</div></div>
+          <div class="field" style="max-width:200px;"><label>Interpreter</label>
+            <select id="e-interpreter">
+              <option value="auto">auto (by extension)</option>
+              <option value="python">python</option>
+              <option value="bash">bash</option>
+              <option value="powershell">powershell</option>
+            </select></div>
+        </div>
+        <div class="field"><label>Output subdir (optional)</label>
+          <input type="text" id="e-output" placeholder="(default: per-execution dir)" />
+          <div class="hint">Scripts write artifacts to <span class="mono">$OUTPUTS_DIR</span>; files there become downloads.</div></div>
+
+        <div class="divider"></div>
+        <div class="between"><strong>Parameters</strong>
+          <button id="add-param" class="btn btn-ghost btn-sm">+ Add parameter</button></div>
+        <div id="params" class="stack" style="margin-top:12px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="delete-action" class="btn btn-danger hidden">Delete</button>
+        <span class="grow"></span>
+        <button class="btn btn-ghost" data-close-editor>Cancel</button>
+        <button id="save-action" class="btn btn-primary">Save Action</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

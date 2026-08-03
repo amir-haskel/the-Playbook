@@ -1,0 +1,109 @@
+"""SQLite persistence for OpsPulse.
+
+The pod is stateless; all configuration and execution history live in a SQLite
+database on the PVC-mounted DATA_DIR. Concurrency is low (a config store plus
+occasional execution rows), so a single shared connection guarded by a lock is
+sufficient and avoids per-request connection churn.
+"""
+from __future__ import annotations
+
+import json
+import sqlite3
+import threading
+from typing import Any, Iterable
+
+from .config import settings
+
+_lock = threading.Lock()
+_conn: sqlite3.Connection | None = None
+
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS actions (
+    id            TEXT PRIMARY KEY,
+    title         TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    icon          TEXT NOT NULL DEFAULT '',
+    color         TEXT NOT NULL DEFAULT 'slate',
+    category      TEXT NOT NULL DEFAULT 'General',
+    script_path   TEXT NOT NULL,
+    interpreter   TEXT NOT NULL DEFAULT 'auto',
+    parameters    TEXT NOT NULL DEFAULT '[]',   -- JSON array
+    output_subdir TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS executions (
+    id          TEXT PRIMARY KEY,
+    action_id   TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    exit_code   INTEGER,
+    created_at  TEXT NOT NULL,
+    finished_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS artifacts (
+    file_id      TEXT PRIMARY KEY,
+    execution_id TEXT NOT NULL,
+    path         TEXT NOT NULL,
+    filename     TEXT NOT NULL,
+    size         INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_artifacts_exec ON artifacts(execution_id);
+CREATE INDEX IF NOT EXISTS idx_exec_action ON executions(action_id);
+"""
+
+
+def get_conn() -> sqlite3.Connection:
+    global _conn
+    if _conn is None:
+        _conn = sqlite3.connect(
+            settings.db_path, check_same_thread=False, isolation_level=None
+        )
+        _conn.row_factory = sqlite3.Row
+        _conn.execute("PRAGMA journal_mode=WAL;")
+        _conn.execute("PRAGMA foreign_keys=ON;")
+    return _conn
+
+
+def init_db() -> None:
+    conn = get_conn()
+    with _lock:
+        conn.executescript(SCHEMA)
+
+
+def execute(sql: str, params: Iterable[Any] = ()) -> None:
+    conn = get_conn()
+    with _lock:
+        conn.execute(sql, tuple(params))
+
+
+def query_all(sql: str, params: Iterable[Any] = ()) -> list[sqlite3.Row]:
+    conn = get_conn()
+    with _lock:
+        cur = conn.execute(sql, tuple(params))
+        return cur.fetchall()
+
+
+def query_one(sql: str, params: Iterable[Any] = ()) -> sqlite3.Row | None:
+    conn = get_conn()
+    with _lock:
+        cur = conn.execute(sql, tuple(params))
+        return cur.fetchone()
+
+
+# --- JSON helpers for the parameters column -------------------------------- #
+def dumps(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"))
+
+
+def loads(value: str | None) -> Any:
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
