@@ -1,13 +1,15 @@
 """Trigger script execution and stream stdout/stderr over SSE."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from .. import database as db
 from .. import store
-from ..executor import _DONE, manager
+from ..executor import _TERMINAL, manager
 from ..models import ExecuteRequest
 
 router = APIRouter(prefix="/api/v1", tags=["execute"])
@@ -49,8 +51,29 @@ async def execute_action(action_id: str, payload: ExecuteRequest) -> dict:
             )
 
     execution = manager.create(action)
+    store.prune_executions()  # keep history within the configured limit
     manager.start(execution, action, payload.values)
     return {"execution_id": execution.id, "status": execution.status.value}
+
+
+@router.get("/executions")
+def list_executions(limit: int = 50) -> list[dict]:
+    """Return recent executions (newest first) for the history view."""
+    limit = max(1, min(int(limit), 500))
+    rows = db.query_all(
+        "SELECT id, action_id, action_title, status, created_at, finished_at "
+        "FROM executions ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    )
+    return [dict(row) for row in rows]
+
+
+@router.post("/executions/{execution_id}/stop")
+async def stop_execution(execution_id: str) -> dict:
+    """Gracefully stop a running execution."""
+    if not manager.stop(execution_id):
+        raise HTTPException(status_code=404, detail="Execution not found")
+    return {"stopped": True}
 
 
 @router.get("/stream/{execution_id}")
@@ -60,20 +83,33 @@ async def stream_execution(execution_id: str, request: Request) -> StreamingResp
         raise HTTPException(status_code=404, detail="Execution not found")
 
     async def event_generator():
+        # Poll the buffered line list so a client can disconnect and re-attach
+        # later and still replay the full output from the beginning.
+        idx = 0
         while True:
             if await request.is_disconnected():
-                break
-            item = await execution.queue.get()
-            if item is _DONE:
+                # Client closed the modal; the process keeps running.
+                return
+
+            lines = execution.lines
+            while idx < len(lines):
+                channel, text = lines[idx]
+                idx += 1
+                yield _sse(channel, {"line": text})
+
+            if execution.status in _TERMINAL and idx >= len(execution.lines):
                 payload = {
                     "status": execution.status.value,
                     "exit_code": execution.exit_code,
-                    "artifacts": [a.model_dump() for a in execution.artifacts],
+                    "artifacts": [
+                        {"file_id": a.file_id, "filename": a.filename, "size": a.size}
+                        for a in execution.artifacts
+                    ],
                 }
                 yield _sse("status", payload)
-                break
-            channel, text = item
-            yield _sse(channel, {"line": text})
+                return
+
+            await asyncio.sleep(0.15)
 
     return StreamingResponse(
         event_generator(),

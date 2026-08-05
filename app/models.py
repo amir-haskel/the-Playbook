@@ -14,6 +14,7 @@ class ParamType(str, Enum):
     radio = "radio"
     select = "select"
     dynamic_select = "dynamic_select"
+    file = "file"          # user-uploaded file; value is an upload token
 
 
 class Interpreter(str, Enum):
@@ -155,6 +156,7 @@ class ExecutionState(str, Enum):
     RUNNING = "RUNNING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+    STOPPED = "STOPPED"     # gracefully stopped by the user mid-run
 
 
 class ArtifactInfo(BaseModel):

@@ -76,7 +76,7 @@ def test_resolve_script_confined(tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------- input passing
-def test_build_inputs_env_and_cli():
+def test_build_inputs_env_and_positional():
     params = [
         Parameter(name="branch", type=ParamType.text),
         Parameter(name="force", type=ParamType.checkbox),
@@ -84,22 +84,51 @@ def test_build_inputs_env_and_cli():
     env, cli = _build_inputs(params, {"branch": "main", "force": True})
     assert env["branch"] == "main"
     assert env["force"] == "true"
-    assert "--branch" in cli and "main" in cli
-    assert "--force" in cli          # bare flag when true
+    # Positional, in parameter order, no --name flags.
+    assert cli == ["main", "true"]
 
 
-def test_build_inputs_checkbox_false_omits_flag():
+def test_build_inputs_checkbox_false_positional():
     params = [Parameter(name="force", type=ParamType.checkbox)]
     env, cli = _build_inputs(params, {"force": False})
     assert env["force"] == "false"
-    assert "--force" not in cli
+    assert cli == ["false"]
 
 
 def test_build_inputs_checkbox_group_multi():
     params = [Parameter(name="envs", type=ParamType.checkbox, options=["dev", "prod", "qa"])]
     env, cli = _build_inputs(params, {"envs": ["dev", "prod"]})
     assert env["envs"] == "dev,prod"
-    assert cli == ["--envs", "dev", "--envs", "prod"]
+    # Each selected value is its own positional arg, in order.
+    assert cli == ["dev", "prod"]
+
+
+def test_build_inputs_order_and_types():
+    params = [
+        Parameter(name="name", type=ParamType.text),
+        Parameter(name="count", type=ParamType.number),
+        Parameter(name="mode", type=ParamType.select, options=["a", "b"]),
+    ]
+    env, cli = _build_inputs(
+        params, {"name": "svc", "count": 3, "mode": "b"}
+    )
+    assert cli == ["svc", "3", "b"]
+    assert env == {"name": "svc", "count": "3", "mode": "b"}
+
+
+def test_build_inputs_file_param_positional():
+    # A file param's value has already been resolved to a basename by the time
+    # _build_inputs runs; it is passed as a single positional arg.
+    params = [Parameter(name="upload", type=ParamType.file)]
+    env, cli = _build_inputs(params, {"upload": "data.csv"})
+    assert cli == ["data.csv"]
+    assert env["upload"] == "data.csv"
+
+
+def test_paramtype_file_exists():
+    assert ParamType.file.value == "file"
+    # File params require no options/default validation.
+    Parameter(name="f", type=ParamType.file)
 
 
 # --------------------------------------------------------------- validators

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpsPulse — Admin Builder</title>
   <script>(function(){try{var t=localStorage.getItem('opspulse-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <link rel="stylesheet" href="/static/css/app.css?v=4" />
+  <link rel="stylesheet" href="/static/css/app.css?v=7" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>" />
 </head>
 <body>
@@ -51,6 +51,22 @@
       <button id="new-action" class="btn btn-primary">+ New Action</button>
     </div>
     <div id="action-list" class="stack"></div>
+
+    <div class="divider"></div>
+
+    <!-- Settings -->
+    <div class="between" style="margin:10px 0;">
+      <div><h2 style="margin:0;">Settings</h2><div class="muted small">Runtime configuration.</div></div>
+    </div>
+    <div class="param-card">
+      <div class="field" style="max-width:300px;">
+        <label>History retention (max runs)</label>
+        <input type="number" id="s-history-limit" min="1" max="1000" placeholder="50" />
+        <div class="hint">The execution history keeps at most this many runs; older ones
+          (and their artifacts) are removed. Default 50.</div>
+      </div>
+      <button id="save-settings" class="btn btn-primary">Save Settings</button>
+    </div>
   </main>
 
   <!-- Tag editor modal -->
@@ -140,8 +156,9 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/js/theme.js?v=4"></script>
-  <script src="/static/js/icons.js?v=4"></script>
-  <script src="/static/js/admin.js?v=4"></script>
+  <script src="/static/js/theme.js?v=7"></script>
+  <script src="/static/js/space.js?v=7"></script>
+  <script src="/static/js/icons.js?v=7"></script>
+  <script src="/static/js/admin.js?v=7"></script>
 </body>
 </html>

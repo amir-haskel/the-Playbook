@@ -44,12 +44,13 @@ CREATE TABLE IF NOT EXISTS tags (
 );
 
 CREATE TABLE IF NOT EXISTS executions (
-    id          TEXT PRIMARY KEY,
-    action_id   TEXT NOT NULL,
-    status      TEXT NOT NULL,
-    exit_code   INTEGER,
-    created_at  TEXT NOT NULL,
-    finished_at TEXT
+    id           TEXT PRIMARY KEY,
+    action_id    TEXT NOT NULL,
+    action_title TEXT NOT NULL DEFAULT '',
+    status       TEXT NOT NULL,
+    exit_code    INTEGER,
+    created_at   TEXT NOT NULL,
+    finished_at  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS artifacts (
@@ -61,8 +62,14 @@ CREATE TABLE IF NOT EXISTS artifacts (
     created_at   TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_artifacts_exec ON artifacts(execution_id);
 CREATE INDEX IF NOT EXISTS idx_exec_action ON executions(action_id);
+CREATE INDEX IF NOT EXISTS idx_exec_created ON executions(created_at);
 """
 
 
@@ -90,6 +97,11 @@ def init_db() -> None:
         tag_cols = {row["name"] for row in conn.execute("PRAGMA table_info(tags)")}
         if "type" not in tag_cols:
             conn.execute("ALTER TABLE tags ADD COLUMN type TEXT NOT NULL DEFAULT 'function'")
+        exec_cols = {row["name"] for row in conn.execute("PRAGMA table_info(executions)")}
+        if "action_title" not in exec_cols:
+            conn.execute(
+                "ALTER TABLE executions ADD COLUMN action_title TEXT NOT NULL DEFAULT ''"
+            )
 
 
 def execute(sql: str, params: Iterable[Any] = ()) -> None:

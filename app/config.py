@@ -48,6 +48,8 @@ class Settings:
 
         self.db_path: Path = self.data_dir / "app.db"
         self.outputs_dir: Path = self.data_dir / "outputs"
+        # Staging area for user-uploaded file params before execution.
+        self.uploads_dir: Path = self.data_dir / "uploads"
 
         # HTTP client timeout (seconds) for dropdown fetches.
         self.http_timeout: float = float(_env("HTTP_TIMEOUT", "15"))
@@ -57,6 +59,7 @@ class Settings:
         """Create writable directories. Called on startup."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
+        self.uploads_dir.mkdir(parents=True, exist_ok=True)
         # SCRIPTS_DIR may be a read-only mount; only create it if missing.
         try:
             self.scripts_dir.mkdir(parents=True, exist_ok=True)

@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import datetime as _dt
+import shutil
 import sqlite3
 import uuid
 
 from . import database as db
+from .config import settings
 from .models import Action, ActionBase, Parameter, Tag, TagBase
+
+DEFAULT_HISTORY_LIMIT = 50
 
 
 def _utcnow() -> str:
@@ -156,3 +160,41 @@ def delete_tag(tag_id: str) -> bool:
                 (db.dumps(remaining), action.id),
             )
     return True
+
+
+# ----------------------------------------------------------------- settings
+def get_setting(key: str, default: str | None = None) -> str | None:
+    row = db.query_one("SELECT value FROM app_settings WHERE key=?", (key,))
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    db.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, str(value)),
+    )
+
+
+def get_history_limit() -> int:
+    try:
+        return max(1, min(1000, int(get_setting("history_limit", str(DEFAULT_HISTORY_LIMIT)))))
+    except (TypeError, ValueError):
+        return DEFAULT_HISTORY_LIMIT
+
+
+def prune_executions(limit: int | None = None) -> int:
+    """Keep only the newest ``limit`` executions; delete older rows, their
+    artifact records, and their on-disk output directories. Returns the count
+    removed."""
+    limit = limit if limit is not None else get_history_limit()
+    old = db.query_all(
+        "SELECT id FROM executions ORDER BY created_at DESC LIMIT -1 OFFSET ?",
+        (limit,),
+    )
+    for row in old:
+        eid = row["id"]
+        db.execute("DELETE FROM artifacts WHERE execution_id=?", (eid,))
+        db.execute("DELETE FROM executions WHERE id=?", (eid,))
+        shutil.rmtree(settings.outputs_dir / eid, ignore_errors=True)
+    return len(old)

@@ -16,7 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import __version__
 from .config import settings
 from .database import init_db
-from .routers import actions, admin, download, dynamic, execute, tags
+from .routers import actions, admin, download, dynamic, execute, settings as settings_router, tags, uploads
 
 logger = logging.getLogger("opspulse")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -37,9 +37,11 @@ app.add_middleware(
 app.include_router(actions.router)
 app.include_router(tags.router)
 app.include_router(execute.router)
+app.include_router(uploads.router)
 app.include_router(dynamic.router)
 app.include_router(download.router)
 app.include_router(admin.router)
+app.include_router(settings_router.router)
 
 
 @app.on_event("startup")

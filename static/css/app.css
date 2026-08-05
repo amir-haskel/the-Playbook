@@ -233,7 +233,10 @@ a:hover { color: var(--primary-h); }
 .chip {
   cursor: pointer; user-select: none;
   display: inline-flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px;
+  /* Distinctive monospace label — less generic than the default sans. */
+  font-family: var(--team-mono);
+  font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
+  padding: 6px 14px; border-radius: 999px;
   border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim);
   transition: color .14s, background-color .14s, border-color .14s;
 }
@@ -327,9 +330,11 @@ a:hover { color: var(--primary-h); }
 .btn-primary { background: var(--primary); color: var(--primary-ct); box-shadow: var(--shadow-sm); }
 .btn-primary:hover { background: var(--primary-h); }
 .btn-success { background: var(--success); color: #fff; }
-.btn-success:hover { filter: brightness(1.06); }
+/* Re-assert background so the generic .btn:hover (surface-2) can't wash out
+   the colored variants and leave white-on-light text. */
+.btn-success:hover { background: var(--success); filter: brightness(1.08); }
 .btn-danger  { background: var(--danger); color: #fff; }
-.btn-danger:hover { filter: brightness(1.06); }
+.btn-danger:hover { background: var(--danger); filter: brightness(1.08); }
 .btn-ghost   { background: transparent; border-color: var(--border-2); color: var(--text-dim); }
 .btn-ghost:hover { background: var(--surface-3); color: var(--text); }
 .btn-sm { padding: 7px 12px; font-size: 13px; }
@@ -363,6 +368,21 @@ a:hover { color: var(--primary-h); }
 }
 .modal-overlay.open { display: flex; animation: fade .16s ease; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+/* Docked mode: opened from the history drawer — no dim/blur, positioned just
+   left of the drawer, and clicks pass through to the drawer behind it. */
+.modal-overlay.docked {
+  /* Keep the normal dim + blur behind everything; just shift the modal left of
+     the drawer. The drawer (z-index 60) sits above this overlay, so it and the
+     modal stay crisp while the page behind is blurred. */
+  justify-content: flex-end; padding-right: 372px;
+}
+.modal-overlay.docked .modal {
+  cursor: pointer;
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--border);
+}
+@media (max-width: 980px) {
+  .modal-overlay.docked { justify-content: center; padding-right: 18px; }
+}
 .modal {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; width: 100%; max-width: 640px; box-shadow: var(--shadow-lg);
@@ -457,3 +477,187 @@ input:focus, select:focus, textarea:focus {
   .modal-footer { justify-content: stretch; }
   .modal-footer .btn { flex: 1; }
 }
+
+/* ============================ NIGHT-SKY DARK MODE ============================ */
+/* Dark mode only: a calm, deep night gradient with a subtle CSS starfield.
+ * Light mode is untouched. The effect is a fixed, full-viewport layer painted
+ * on body::before / body::after (z-index:-1, behind all content). It is hidden
+ * by default (opacity:0) and revealed by BOTH dark activations:
+ *   - explicit  :root[data-theme="dark"]
+ *   - system dark without an explicit light choice (the media query below)
+ * Surfaces (cards, modals, drawer) stay solid var(--surface), so all text,
+ * badges, .tag-pill, .team-badge, .card-desc and .muted remain fully legible.
+ * Deepen the base --bg so the header's translucent surface and any edges match
+ * the night gradient's bottom. */
+:root[data-theme="dark"] { --bg: #05060a; --night: 1; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #05060a; --night: 1; }
+}
+
+/* Base layers — generated in all themes but invisible (opacity:0) until dark. */
+body::before,
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1;
+  pointer-events: none; opacity: 0;
+  transition: opacity .4s ease;
+}
+/* ::before — night gradient + faint "milky way" glow + fine, static stars. */
+body::before {
+  /* Deep-space base + two soft nebula glows (lime top-right, violet top-left),
+     matching the "midnight" portal palette, with a fine starfield over it. */
+  background-color: #05060a;
+  background-image:
+    radial-gradient(1px 1px at 30px 40px,   rgba(255,255,255,.90), transparent),
+    radial-gradient(1px 1px at 120px 90px,  rgba(214,226,255,.80), transparent),
+    radial-gradient(1px 1px at 80px 165px,  rgba(255,255,255,.70), transparent),
+    radial-gradient(1.5px 1.5px at 190px 60px, rgba(255,255,255,.75), transparent),
+    radial-gradient(1px 1px at 160px 205px, rgba(200,215,255,.70), transparent),
+    radial-gradient(1px 1px at 215px 150px, rgba(255,255,255,.60), transparent),
+    radial-gradient(circle at 78% 8%,  rgba(185,255,114,.12), transparent 13rem),
+    radial-gradient(circle at 18% 15%, rgba(167,139,250,.12), transparent 22rem);
+  background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat;
+  background-size:
+    240px 240px, 240px 240px, 240px 240px, 240px 240px, 240px 240px, 240px 240px,
+    100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+/* ::after — a sparser layer of brighter stars that gently twinkles. */
+body::after {
+  background-image:
+    radial-gradient(1.5px 1.5px at 60px 50px,   rgba(255,255,255,.95), transparent),
+    radial-gradient(2px 2px at 205px 120px,     rgba(190,210,255,.90), transparent),
+    radial-gradient(1.5px 1.5px at 320px 225px, rgba(255,255,255,.85), transparent),
+    radial-gradient(2px 2px at 130px 300px,     rgba(255,246,214,.80), transparent);
+  background-repeat: repeat;
+  background-size: 380px 380px;
+  background-attachment: fixed;
+}
+
+/* Reveal in dark — explicit theme. */
+:root[data-theme="dark"] body::before,
+:root[data-theme="dark"] body::after { opacity: 1; }
+:root[data-theme="dark"] body::after { animation: twinkle 6s ease-in-out infinite; }
+/* Reveal in dark — system dark without an explicit light choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body::before,
+  :root:not([data-theme="light"]) body::after { opacity: 1; }
+  :root:not([data-theme="light"]) body::after { animation: twinkle 6s ease-in-out infinite; }
+}
+/* GPU-friendly: animate opacity only. Low amplitude, slow, unobtrusive. */
+@keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+/* Slow parallax drift of the fine-star layer for a "living" sky. */
+:root[data-theme="dark"] body::before { animation: drift 140s linear infinite; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body::before { animation: drift 140s linear infinite; }
+}
+@keyframes drift { from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: 240px 480px, 240px 480px, 240px 480px, 240px 480px, 240px 480px, 240px 480px, 0 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+  body::after, body::before { animation: none !important; }
+}
+
+/* Dynamic overlay: nebula glow + JS-launched shooting stars (dark mode only). */
+#space-fx {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  opacity: 0; transition: opacity .4s ease;
+}
+:root[data-theme="dark"] #space-fx { opacity: 1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #space-fx { opacity: 1; } }
+.shooting-star {
+  position: absolute; height: 2px; border-radius: 2px; opacity: 0;
+  transform-origin: left center; will-change: transform, opacity;
+  background: linear-gradient(90deg, rgba(170,205,255,0), rgba(255,255,255,.95));
+  box-shadow: 0 0 6px rgba(150,190,255,.85), 0 0 2px rgba(255,255,255,.9);
+}
+@media (prefers-reduced-motion: reduce) { #space-fx .shooting-star { display: none; } }
+
+/* ============================ HISTORY DRAWER (right side) ============================ */
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100vh; height: 100dvh;
+  width: 340px; max-width: 90vw;
+  display: flex; flex-direction: column;
+  background: var(--surface); border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.2,.7,.3,1);
+  z-index: 60;
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-overlay {
+  position: fixed; inset: 0; z-index: 59;
+  background: rgba(20,25,30,.44); backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+.drawer-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 17px 20px; border-bottom: 1px solid var(--border); flex: none;
+}
+.drawer-title { font-weight: 650; font-size: 16px; letter-spacing: -.01em; }
+
+#history-list {
+  flex: 1; overflow-y: auto; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 9px;
+}
+
+.history-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 13px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: background-color .14s, border-color .14s, transform .06s;
+}
+.history-item:hover { background: var(--surface-3); border-color: var(--border-2); }
+.history-item:active { transform: translateY(1px); }
+.history-item-main {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;
+}
+.history-item-title {
+  font-weight: 600; font-size: 14px; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.history-item-meta {
+  color: var(--text-mut); font-size: 12px; line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ============================ STOPPED BADGE ============================ */
+/* Neutral slate treatment — distinct from failed-red and success-green. */
+.badge-stopped { background: var(--surface-3); color: var(--text-dim); }
+
+/* ============================ FILE DROPZONE ============================ */
+.dropzone {
+  border: 1.5px dashed var(--border-2); background: var(--surface-2);
+  border-radius: var(--radius-sm); padding: 22px 18px; text-align: center;
+  cursor: pointer; color: var(--text-dim);
+  transition: border-color .15s, background-color .15s, color .15s;
+}
+.dropzone:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border-2)); }
+.dropzone-hint { color: var(--text-mut); font-size: 13px; line-height: 1.45; }
+.dropzone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--text);
+}
+.dropzone.uploading { opacity: .6; pointer-events: none; cursor: progress; }
+
+.dropzone-file {
+  display: inline-flex; align-items: center; gap: 9px; max-width: 100%;
+  padding: 6px 8px 6px 12px; border-radius: 999px;
+  background: var(--surface-3); border: 1px solid var(--border-2);
+  font-size: 13px; color: var(--text);
+}
+.dropzone-file .file-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.file-clear {
+  flex: none; width: 20px; height: 20px; padding: 0; border: none;
+  border-radius: 50%; cursor: pointer; line-height: 1; font-size: 14px;
+  display: grid; place-items: center;
+  background: var(--surface); color: var(--text-mut); font-family: inherit;
+  transition: background-color .12s, color .12s;
+}
+.file-clear:hover { background: var(--danger-soft); color: var(--danger); }

@@ -21,7 +21,7 @@
   const funcTags = () => tags.filter((t) => t.type !== "team");
   const teamTags = () => tags.filter((t) => t.type === "team");
 
-  const PARAM_TYPES = ["text", "number", "checkbox", "radio", "select", "dynamic_select"];
+  const PARAM_TYPES = ["text", "number", "checkbox", "radio", "select", "dynamic_select", "file"];
   const TAG_COLORS = ["teal", "sage", "green", "blue", "indigo", "cyan", "plum", "rose", "clay", "amber", "slate"];
 
   // ------------------------------------------------------------- auth
@@ -39,7 +39,26 @@
     el("login-view").classList.add("hidden");
     el("builder-view").classList.remove("hidden");
     el("logout").classList.remove("hidden");
-    await Promise.all([loadActions(), loadTags(), loadScripts()]);
+    await Promise.all([loadActions(), loadTags(), loadScripts(), loadSettings()]);
+  }
+
+  async function loadSettings() {
+    try {
+      const s = await (await fetch(`${API}/settings`)).json();
+      el("s-history-limit").value = s.history_limit != null ? s.history_limit : 50;
+    } catch (_) {}
+  }
+  async function saveSettings() {
+    const v = parseInt(el("s-history-limit").value, 10);
+    if (!v || v < 1 || v > 1000) return toast("History limit must be 1–1000", "error");
+    const res = await fetch(`${API}/settings`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history_limit: v }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      toast(`Saved — keeping newest ${d.history_limit}` + (d.pruned ? `, removed ${d.pruned}` : ""), "success");
+    } else toast(await readErr(res, "Save failed"), "error");
   }
   async function login() {
     const res = await fetch(`${API}/admin/login`, {
@@ -482,6 +501,7 @@
   el("new-action").addEventListener("click", () => openEditor(null));
   el("add-param").addEventListener("click", () => addParamRow());
   el("save-action").addEventListener("click", saveAction);
+  el("save-settings").addEventListener("click", saveSettings);
   el("delete-action").addEventListener("click", deleteAction);
   el("new-tag").addEventListener("click", () => openTagEditor(null));
   el("save-tag").addEventListener("click", saveTag);
