@@ -1,0 +1,18 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: opspulse
+  labels:
+    app: opspulse
+  annotations:
+    # SSE needs a long server-read timeout so the stream isn't cut mid-execution.
+    haproxy.router.openshift.io/timeout: 1h
+spec:
+  to:
+    kind: Service
+    name: opspulse
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpsPulse — Developer Dashboard</title>
+  <script>(function(){try{var t=localStorage.getItem('opspulse-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <link rel="stylesheet" href="/static/css/app.css?v=7" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand"><span class="logo">⚡</span> OpsPulse</div>
+      <span class="grow"></span>
+      <button id="history-toggle" class="btn-icon" type="button" title="History" aria-label="Execution history"></button>
+      <button id="theme-toggle" class="btn-icon" type="button" aria-label="Toggle theme">☾</button>
+      <a class="btn btn-ghost btn-sm" href="/admin">Admin</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <input id="search" class="searchbar" type="text"
+           placeholder="Search actions by name, description or tag…" autocomplete="off" />
+    <div id="filter-bar" class="filter-bar"></div>
+    <div id="board" class="stack" style="margin-top:22px;"></div>
+  </main>
+
+  <!-- Execution modal -->
+  <div id="modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <span id="m-icon" class="card-icon"></span>
+        <div>
+          <div id="m-title" class="modal-title">Action</div>
+          <div id="m-desc" class="muted small"></div>
+        </div>
+        <button class="close-x" data-close aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="m-form" class="stack" onsubmit="return false;"></form>
+
+        <div id="m-run" class="hidden">
+          <div class="divider"></div>
+          <div class="between" style="margin-bottom:10px;">
+            <strong>Execution</strong>
+            <span id="m-status" class="badge badge-pending">Pending</span>
+          </div>
+          <div id="m-terminal" class="terminal"></div>
+          <div id="m-artifacts" class="stack" style="margin-top:12px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span id="m-gate" class="small err-text hidden"></span>
+        <span class="grow"></span>
+        <button class="btn btn-ghost" data-close>Close</button>
+        <button id="m-stop" class="btn btn-danger hidden">Stop</button>
+        <button id="m-execute" class="btn btn-primary">▶ Execute</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Execution history drawer -->
+  <div id="drawer-overlay" class="drawer-overlay"></div>
+  <aside id="history-drawer" class="drawer" aria-label="Execution history">
+    <div class="drawer-header">
+      <strong>Execution history</strong>
+      <span class="grow"></span>
+      <button id="history-close" class="close-x" type="button" aria-label="Close">×</button>
+    </div>
+    <div id="history-list" class="stack"></div>
+  </aside>
+
+  <script src="/static/js/theme.js?v=7"></script>
+  <script src="/static/js/space.js?v=7"></script>
+  <script src="/static/js/icons.js?v=7"></script>
+  <script src="/static/js/dashboard.js?v=7"></script>
+</body>
+</html>
