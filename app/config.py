@@ -27,6 +27,13 @@ class Settings:
         self.gitlab_token: str = _env("GITLAB_TOKEN")
         self.openshift_token: str = _env("OPENSHIFT_TOKEN")
 
+        # --- Branding (wordmark shown in the header + page titles) ---
+        # Split into two parts so the name can be re-labelled without touching
+        # code: BRAND_ARTICLE is the small leading word ("the"), BRAND_NAME is
+        # the emphasised word ("Playbook"). Either may be blank.
+        self.brand_article: str = _env("BRAND_ARTICLE", "the")
+        self.brand_name: str = _env("BRAND_NAME", "Playbook")
+
         # --- Admin auth ---
         self.admin_password: str = _env("ADMIN_PASSWORD")
 

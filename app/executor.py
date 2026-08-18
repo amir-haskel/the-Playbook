@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import datetime as _dt
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -39,6 +40,13 @@ _STOP_GRACE_SECONDS = 10.0
 # Terminal execution states.
 _TERMINAL = {ExecutionState.SUCCESS, ExecutionState.FAILED, ExecutionState.STOPPED}
 
+# Name of the durable, on-disk combined console log written per execution. It
+# lives in the execution's *base* output dir (``outputs/<exec_id>/``) so it is
+# pruned together with the run and survives a server/pod restart, letting the
+# SSE endpoint replay historical output that is no longer in memory. It is never
+# surfaced as a downloadable artifact.
+_CONSOLE_LOG_NAME = "_console.log"
+
 
 def _utcnow() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
@@ -55,6 +63,9 @@ class Execution:
     lines: list[tuple[str, str]] = field(default_factory=list)
     artifacts: list[ArtifactInfo] = field(default_factory=list)
     output_dir: Path | None = None
+    # Durable console log path (``outputs/<exec_id>/_console.log``). Written on
+    # completion so history survives a restart.
+    console_path: Path | None = None
     error: str | None = None
     # Live process handle + stop bookkeeping.
     proc: Any = None
@@ -74,14 +85,18 @@ class ExecutionManager:
     # ------------------------------------------------------------------ #
     def create(self, action: Action) -> Execution:
         execution_id = uuid.uuid4().hex
-        output_dir = settings.outputs_dir / execution_id
+        base_dir = settings.outputs_dir / execution_id
+        output_dir = base_dir
         subdir = action.output_subdir.strip("/\\")
         if subdir:
             output_dir = output_dir / subdir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         execution = Execution(
-            id=execution_id, action_id=action.id, output_dir=output_dir
+            id=execution_id,
+            action_id=action.id,
+            output_dir=output_dir,
+            console_path=base_dir / _CONSOLE_LOG_NAME,
         )
         self._executions[execution_id] = execution
 
@@ -278,11 +293,15 @@ class ExecutionManager:
         out_dir = execution.output_dir
         if not out_dir or not out_dir.exists():
             return
+        console_path = execution.console_path
         for path in sorted(out_dir.rglob("*")):
             if not path.is_file():
                 continue
             # Never surface the user's own uploaded input as a download.
             if path.name in uploaded_names:
+                continue
+            # Never surface the durable console log as a downloadable artifact.
+            if console_path is not None and path == console_path:
                 continue
             file_id = uuid.uuid4().hex
             size = path.stat().st_size
@@ -301,6 +320,7 @@ class ExecutionManager:
         execution.status = state
         if finished:
             execution.finished = True
+            _persist_console(execution)
             db.execute(
                 "UPDATE executions SET status=?, exit_code=?, finished_at=? WHERE id=?",
                 (state.value, execution.exit_code, _utcnow(), execution.id),
@@ -322,14 +342,79 @@ class _UploadError(Exception):
     """Raised when a referenced upload token cannot be resolved to a file."""
 
 
+def _persist_console(execution: Execution) -> None:
+    """Flush the buffered output lines to the durable console log on disk.
+
+    Called once when an execution reaches a terminal state so that history runs
+    keep their terminal output across a server/pod restart (when the in-memory
+    ``Execution`` is gone). Best-effort: a storage error must not fail the run.
+    """
+    path = execution.console_path
+    if path is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = "\n".join(text for _, text in execution.lines)
+        if text:
+            text += "\n"
+        path.write_text(text, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def load_persisted_console(execution_id: str) -> list[str] | None:
+    """Return the persisted console lines for a finished execution.
+
+    Reads ``outputs/<exec_id>/_console.log``. Returns the list of text lines, or
+    ``None`` when no durable log exists (e.g. a run interrupted by a restart).
+    """
+    path = settings.outputs_dir / execution_id / _CONSOLE_LOG_NAME
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()  # drop the trailing newline's empty element
+    return lines
+
+
+_ENV_KEY_INVALID = re.compile(r"[^A-Za-z0-9_]+")
+
+
+def _env_key(name: str) -> str:
+    """Derive a valid OS environment-variable name from a parameter name.
+
+    Parameter names may now contain spaces (e.g. "Target Namespace"), but env
+    var names cannot. Every run of characters outside ``[A-Za-z0-9_]`` is
+    collapsed to a single ``_``, leading/trailing underscores are stripped, and
+    an empty or digit-leading result is prefixed with ``_``.
+
+    Examples::
+
+        "Target Namespace" -> "Target_Namespace"
+        "  a--b__c  "       -> "a_b_c"
+        "2fa"               -> "_2fa"
+        "!!!"               -> "_"
+    """
+    key = _ENV_KEY_INVALID.sub("_", name).strip("_")
+    if not key or key[0].isdigit():
+        key = "_" + key
+    return key
+
+
 def _build_inputs(
     parameters: list[Parameter], values: dict[str, Any]
 ) -> tuple[dict[str, str], list[str]]:
     """Translate submitted values into (env vars, positional CLI args).
 
-    Each parameter becomes an env var named exactly as the parameter, AND one or
-    more positional CLI args (scripts read them as ``$1 $2 ...`` / ``sys.argv``),
-    emitted in parameter order. No ``--name`` flags are produced.
+    Each parameter becomes an env var (named by a sanitized key derived from the
+    parameter name via ``_env_key`` — env names cannot contain spaces), AND one
+    or more positional CLI args (scripts read them as ``$1 $2 ...`` /
+    ``sys.argv``), emitted in parameter order. No ``--name`` flags are produced.
+    Values are still looked up from ``values`` by the literal parameter name.
 
     * text/number/select/radio/dynamic_select/file: one positional arg
       ``str(value)``; env[name] = str(value).
@@ -345,21 +430,23 @@ def _build_inputs(
         if raw is None:
             continue
 
+        key = _env_key(param.name)
+
         if param.type.value == "checkbox":
             if param.options:
                 # Multi-select checkbox group -> repeated positional args.
                 vals = raw if isinstance(raw, list) else [raw]
                 vals = [str(v) for v in vals if v not in (None, "")]
-                env[param.name] = ",".join(vals)
+                env[key] = ",".join(vals)
                 cli.extend(vals)
             else:
                 truthy = _as_bool(raw)
-                env[param.name] = "true" if truthy else "false"
+                env[key] = "true" if truthy else "false"
                 cli.append("true" if truthy else "false")
             continue
 
         text = str(raw)
-        env[param.name] = text
+        env[key] = text
         cli.append(text)
     return env, cli
 

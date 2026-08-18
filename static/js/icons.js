@@ -40,6 +40,21 @@
       '<path d="M12 4v11"/><path d="M8 11l4 4 4-4"/><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/>',
     activity:
       '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+    book:
+      // Closed hardcover tome (scripture-like): cover + spine hinge, an embossed
+      // cross on the face, and a bookmark ribbon hanging from the top edge.
+      '<path d="M6.5 4h11a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-11a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/>' +
+      '<path d="M8.5 4v16"/>' +
+      '<path d="M13.5 10v5M11 12.5h5"/>' +
+      '<path d="M14.6 4v4.4l1-.8 1 .8V4"/>',
+    moon:
+      // Clean crescent for the "switch to dark" control.
+      '<path d="M21 12.9A8.6 8.6 0 1 1 11.1 3.1a6.7 6.7 0 0 0 9.9 9.8z"/>',
+    sun:
+      // Rayed sun for the "switch to light" control.
+      '<circle cx="12" cy="12" r="4.1"/>' +
+      '<path d="M12 2.4v2.3M12 19.3v2.3M4.4 4.4l1.6 1.6M17.9 17.9l1.6 1.6' +
+      'M2.4 12h2.3M19.3 12h2.3M4.4 19.6l1.6-1.6M17.9 6.1l1.6-1.6"/>',
     cpu:
       '<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 2.5v3M14 2.5v3M10 18.5v3M14 18.5v3M2.5 10h3M2.5 14h3M18.5 10h3M18.5 14h3"/>',
     layers:

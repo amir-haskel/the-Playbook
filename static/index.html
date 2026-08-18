@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpsPulse — Developer Dashboard</title>
+  <title>{{BRAND_FULL}} — Developer Dashboard</title>
   <script>(function(){try{var t=localStorage.getItem('opspulse-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <link rel="stylesheet" href="/static/css/app.css?v=7" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <link rel="stylesheet" href="/static/css/app.css?v=29" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=29" />
 </head>
 <body>
   <header class="header">
     <div class="header-inner">
-      <div class="brand"><span class="logo">⚡</span> OpsPulse</div>
+      <div class="brand"><span class="logo" aria-hidden="true"></span><span class="brand-word"><span class="brand-the">{{BRAND_ARTICLE}}</span><span class="brand-name">{{BRAND_NAME}}</span></span></div>
       <span class="grow"></span>
       <button id="history-toggle" class="btn-icon" type="button" title="History" aria-label="Execution history"></button>
       <button id="theme-toggle" class="btn-icon" type="button" aria-label="Toggle theme">☾</button>
@@ -71,9 +71,10 @@
     <div id="history-list" class="stack"></div>
   </aside>
 
-  <script src="/static/js/theme.js?v=7"></script>
-  <script src="/static/js/space.js?v=7"></script>
-  <script src="/static/js/icons.js?v=7"></script>
-  <script src="/static/js/dashboard.js?v=7"></script>
+  <script src="/static/js/theme.js?v=29"></script>
+  <script src="/static/js/starfield.js?v=29"></script>
+  <script src="/static/js/icons.js?v=29"></script>
+  <script src="/static/js/history-icon.js?v=29"></script>
+  <script src="/static/js/dashboard.js?v=29"></script>
 </body>
 </html>

@@ -72,7 +72,7 @@
 
   // ------------------------------------------------------------- data
   async function loadActions() {
-    actions = await (await fetch(`${API}/actions`)).json();
+    actions = await (await fetch(`${API}/actions/admin`)).json();
     renderActionList();
   }
   async function loadTags() {
@@ -287,19 +287,28 @@
   function addParamRow(p = {}) {
     const row = document.createElement("div");
     row.className = "param-card";
+    // A dynamic checkbox group is stored as type "checkbox" carrying a dynamic
+    // source; in the builder it is edited as a "dynamic_select" with the
+    // "render as checkbox group" toggle on.
+    const isDynCheckbox = p.type === "checkbox" && !!(p.endpoint || p.dynamic_type);
+    const uiType = isDynCheckbox ? "dynamic_select" : (p.type || "text");
     row.innerHTML = `
       <div class="between">
         <strong class="small">Parameter</strong>
-        <button class="btn btn-ghost btn-sm" data-remove>Remove</button>
+        <div class="flex">
+          <button class="btn btn-ghost btn-sm" data-move-up title="Move up" aria-label="Move up">▲</button>
+          <button class="btn btn-ghost btn-sm" data-move-down title="Move down" aria-label="Move down">▼</button>
+          <button class="btn btn-ghost btn-sm" data-remove>Remove</button>
+        </div>
       </div>
       <div class="row">
         <div class="field"><label>Name (var) <span class="req">*</span></label>
-          <input class="p-name" type="text" placeholder="branch" value="${escapeAttr(p.name || "")}" /></div>
-        <div class="field"><label>Label</label>
-          <input class="p-label" type="text" placeholder="Branch" value="${escapeAttr(p.label || "")}" /></div>
-        <div class="field" style="max-width:170px;"><label>Type</label>
+          <input class="p-name" type="text" placeholder="target namespace" value="${escapeAttr(p.name || "")}" />
+          <div class="hint">Field key and the label shown to developers. Letters, numbers,
+            spaces, <span class="mono">-</span> and <span class="mono">_</span>; must start with a letter (1–64 chars).</div></div>
+        <div class="field" style="max-width:200px;"><label>Type</label>
           <select class="p-type">${PARAM_TYPES.map((t) =>
-            `<option ${p.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+            `<option ${uiType === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>
       </div>
       <div class="row">
         <div class="check-row"><input class="p-required" type="checkbox" ${p.required ? "checked" : ""}/>
@@ -311,7 +320,10 @@
         <input class="p-options" type="text" placeholder="dev, staging, prod"
           value="${escapeAttr((p.options || []).join(", "))}" />
         <div class="hint p-cbhint hidden">A checkbox with options becomes a multi-select group.
-          Leave empty for a single on/off flag. Default(s) may be comma-separated.</div></div>
+          Leave empty for a single on/off flag. Default(s) may be comma-separated.</div>
+        <div class="check-row p-selall-static-row hidden" style="margin-top:10px;">
+          <input class="p-select-all-static" type="checkbox" ${p.select_all ? "checked" : ""}/>
+          <label style="margin:0;">Add a "Select all" checkbox</label></div></div>
       <div class="p-dynamic hidden">
         <div class="field"><label>Endpoint (URL)</label>
           <input class="p-endpoint" type="text" placeholder="\${GITLAB_API_URL}/projects/42/repository/branches"
@@ -324,6 +336,13 @@
             <input class="p-auth" type="text" placeholder="PRIVATE-TOKEN: \${GITLAB_TOKEN}"
               value="${escapeAttr(p.auth_header || "")}" /></div>
         </div>
+        <div class="field" style="max-width:220px;"><label>Sort options</label>
+          <select class="p-sort">
+            <option value="none">As returned</option>
+            <option value="alpha">Alphabetical</option>
+            <option value="version">Version (natural)</option>
+          </select>
+          <div class="hint">How the fetched options are ordered in the run form.</div></div>
         <div class="hint">Endpoint and Auth header may use <span class="mono">\${GITLAB_API_URL}</span> /
           <span class="mono">\${GITLAB_TOKEN}</span> / <span class="mono">\${OPENSHIFT_API_URL}</span> /
           <span class="mono">\${OPENSHIFT_TOKEN}</span> — injected server-side, never sent to the browser.
@@ -333,42 +352,96 @@
           <button type="button" class="btn btn-ghost btn-sm" data-test-dd>▶ Test dropdown</button>
           <span class="dd-result small muted"></span>
         </div>
+        <div class="check-row" style="margin-top:12px;">
+          <input class="p-render-cb" type="checkbox" ${isDynCheckbox ? "checked" : ""}/>
+          <label style="margin:0;">Render as checkbox group (multi-select)</label></div>
+        <div class="check-row p-selall-row hidden" style="margin-top:8px;padding-left:24px;">
+          <input class="p-select-all" type="checkbox" ${p.select_all ? "checked" : ""}/>
+          <label style="margin:0;">Add a "Select all" checkbox</label></div>
       </div>`;
 
     const typeSel = row.querySelector(".p-type");
+    const renderCb = row.querySelector(".p-render-cb");
     const sync = () => {
       const t = typeSel.value;
       const hasOptions = t === "select" || t === "radio" || t === "checkbox";
       row.querySelector(".p-static").classList.toggle("hidden", !hasOptions);
       row.querySelector(".p-cbhint").classList.toggle("hidden", t !== "checkbox");
       row.querySelector(".p-dynamic").classList.toggle("hidden", t !== "dynamic_select");
+      // "Select all" for a static checkbox group (options entered above).
+      row.querySelector(".p-selall-static-row").classList.toggle("hidden", t !== "checkbox");
+      // "Select all" only applies when the dynamic options render as checkboxes.
+      row.querySelector(".p-selall-row").classList.toggle(
+        "hidden", !(t === "dynamic_select" && renderCb.checked));
     };
     typeSel.addEventListener("change", sync);
+    renderCb.addEventListener("change", sync);
     sync();
+    // Pre-select the saved sort mode (default "none" when absent).
+    row.querySelector(".p-sort").value = ["none", "alpha", "version"].includes(p.sort) ? p.sort : "none";
     row.querySelector("[data-test-dd]").addEventListener("click", () => testDropdown(row));
-    row.querySelector("[data-remove]").addEventListener("click", () => row.remove());
+    row.querySelector("[data-remove]").addEventListener("click", () => { row.remove(); updateParamOrder(); });
+    // Reorder by moving the actual row element, so all live field values survive.
+    row.querySelector("[data-move-up]").addEventListener("click", () => {
+      const prev = row.previousElementSibling;
+      if (prev) { el("params").insertBefore(row, prev); updateParamOrder(); }
+    });
+    row.querySelector("[data-move-down]").addEventListener("click", () => {
+      const next = row.nextElementSibling;
+      if (next) { el("params").insertBefore(next, row); updateParamOrder(); }
+    });
     el("params").appendChild(row);
+    updateParamOrder();
+  }
+
+  // Disable "up" on the first row and "down" on the last so order edits stay in bounds.
+  function updateParamOrder() {
+    const rows = [...el("params").children];
+    rows.forEach((row, i) => {
+      const up = row.querySelector("[data-move-up]");
+      const down = row.querySelector("[data-move-down]");
+      if (up) up.disabled = i === 0;
+      if (down) down.disabled = i === rows.length - 1;
+    });
   }
 
   function collectParams() {
     const params = [];
     for (const row of el("params").children) {
-      const name = row.querySelector(".p-name").value.trim();
+      // Contract: trim, then collapse internal runs of whitespace to a single space.
+      const name = row.querySelector(".p-name").value.trim().replace(/\s+/g, " ");
       if (!name) continue;
       const type = row.querySelector(".p-type").value;
       const defaultRaw = row.querySelector(".p-default").value;
+      // Name doubles as the label (label auto-mirrors name server-side).
       const p = {
-        name, label: row.querySelector(".p-label").value.trim(), type,
+        name, label: name, type,
         required: row.querySelector(".p-required").checked,
         default: defaultRaw === "" ? null : defaultRaw, options: [],
       };
       if (type === "select" || type === "radio" || type === "checkbox") {
         p.options = row.querySelector(".p-options").value.split(",").map((s) => s.trim()).filter(Boolean);
       }
+      if (type === "checkbox") {
+        // "Select all" is a UI convenience for a multi-select group, so it only
+        // applies when the checkbox has options — a plain boolean flag (no
+        // options) never carries it.
+        p.select_all = p.options.length > 0 && row.querySelector(".p-select-all-static").checked;
+      }
       if (type === "dynamic_select") {
         p.endpoint = row.querySelector(".p-endpoint").value.trim() || null;
         p.response_key = row.querySelector(".p-respkey").value.trim() || null;
         p.auth_header = row.querySelector(".p-auth").value.trim() || null;
+        // Sort mode applies whether it stays a dynamic_select or renders as a
+        // dynamic checkbox group below; the backend sorts fetched options.
+        p.sort = row.querySelector(".p-sort").value;
+        // "Render as checkbox group" persists as a checkbox param that carries
+        // the dynamic source; the run form fetches its options live.
+        if (row.querySelector(".p-render-cb").checked) {
+          p.type = "checkbox";
+          p.select_all = row.querySelector(".p-select-all").checked;
+          p.options = [];   // fetched dynamically, not statically listed
+        }
       }
       params.push(p);
     }
@@ -405,8 +478,14 @@
     }
   }
 
+  // Contract name rule: start with a letter, then letters/digits/space/_/-, length 1–64.
+  const NAME_RE = /^[A-Za-z][A-Za-z0-9 _-]*$/;
+
   function validateParams(params) {
     for (const p of params) {
+      if (!NAME_RE.test(p.name) || p.name.length > 64)
+        return `Parameter "${p.name}": name must start with a letter and use only ` +
+          `letters, numbers, spaces, hyphens or underscores (max 64 characters)`;
       const hasDefault = p.default !== null && p.default !== undefined && String(p.default).trim() !== "";
       if (p.type === "number" && hasDefault) {
         const n = Number(p.default);

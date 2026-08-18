@@ -34,8 +34,14 @@ def list_scripts() -> list[str]:
         return []
     found: list[str] = []
     for path in root.rglob("*"):
-        if path.is_file() and path.suffix.lower() in _EXT_INTERPRETER:
-            found.append(path.relative_to(root).as_posix())
+        if not (path.is_file() and path.suffix.lower() in _EXT_INTERPRETER):
+            continue
+        # Exclude hidden/dotfiles: a leading '.' on the filename itself
+        # (.gitkeep, .DS_Store, .env) or on any parent directory (e.g. .git/).
+        rel = path.relative_to(root)
+        if any(part.startswith(".") for part in rel.parts):
+            continue
+        found.append(rel.as_posix())
     return sorted(found)
 
 

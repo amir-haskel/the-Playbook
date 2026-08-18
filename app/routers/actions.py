@@ -11,9 +11,14 @@ from ..models import Action, ActionCreate, ActionUpdate
 router = APIRouter(prefix="/api/v1/actions", tags=["actions"])
 
 
-def _serialize(action, tag_map: dict) -> dict:
-    """Public action dict with resolved tag_details (id, name, color, type)."""
-    data = action.public_dict()
+def _serialize(action, tag_map: dict, include_secrets: bool = False) -> dict:
+    """Action dict with resolved tag_details (id, name, color, type).
+
+    ``include_secrets`` is passed through to ``public_dict`` — only the
+    admin-authenticated routes set it, so ``auth_header`` env-var references
+    never reach the public dashboard payload.
+    """
+    data = action.public_dict(include_secrets=include_secrets)
     data["tag_details"] = [
         {"id": t.id, "name": t.name, "color": t.color, "type": t.type.value}
         for tid in action.tags
@@ -38,6 +43,15 @@ def list_actions() -> list[dict]:
     """Public list for the dashboard — secret templates stripped."""
     tag_map = {t.id: t for t in store.list_tags()}
     return [_serialize(a, tag_map) for a in store.list_actions()]
+
+
+@router.get("/admin", dependencies=[Depends(admin_required)])
+def list_actions_admin() -> list[dict]:
+    """Admin builder list — includes ``auth_header`` env-var references so the
+    editor can display and preserve them. Admin-authenticated; declared before
+    ``/{action_id}`` so this literal path is not captured as an action id."""
+    tag_map = {t.id: t for t in store.list_tags()}
+    return [_serialize(a, tag_map, include_secrets=True) for a in store.list_actions()]
 
 
 @router.get("/{action_id}")

@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpsPulse — Admin Builder</title>
+  <title>{{BRAND_FULL}} — Admin Builder</title>
   <script>(function(){try{var t=localStorage.getItem('opspulse-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <link rel="stylesheet" href="/static/css/app.css?v=7" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>" />
+  <link rel="stylesheet" href="/static/css/app.css?v=29" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=29" />
 </head>
 <body>
   <header class="header">
     <div class="header-inner">
-      <div class="brand"><span class="logo">⚡</span> OpsPulse Admin</div>
+      <div class="brand"><span class="logo" aria-hidden="true"></span><span class="brand-word"><span class="brand-the">{{BRAND_ARTICLE}}</span><span class="brand-name">{{BRAND_NAME}}</span> <span class="brand-sub">Admin</span></span></div>
       <span class="grow"></span>
       <button id="theme-toggle" class="btn-icon" type="button" aria-label="Toggle theme">☾</button>
       <a class="btn btn-ghost btn-sm" href="/">← Dashboard</a>
@@ -156,9 +156,9 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/js/theme.js?v=7"></script>
-  <script src="/static/js/space.js?v=7"></script>
-  <script src="/static/js/icons.js?v=7"></script>
-  <script src="/static/js/admin.js?v=7"></script>
+  <script src="/static/js/theme.js?v=29"></script>
+  <script src="/static/js/starfield.js?v=29"></script>
+  <script src="/static/js/icons.js?v=29"></script>
+  <script src="/static/js/admin.js?v=29"></script>
 </body>
 </html>
