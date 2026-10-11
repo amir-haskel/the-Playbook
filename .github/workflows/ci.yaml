@@ -87,7 +87,7 @@ jobs:
             type=sha
             type=ref,event=branch
       - name: Build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -114,7 +114,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
