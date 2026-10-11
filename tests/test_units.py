@@ -1,4 +1,4 @@
-"""Unit tests for OpsPulse core helpers: response-key parser, secret
+"""Unit tests for Playbook core helpers: response-key parser, secret
 substitution, script-path validation, and input translation."""
 import asyncio
 import os
@@ -256,6 +256,31 @@ def test_list_scripts_excludes_dotfiles(tmp_path, monkeypatch):
     listed = script_utils.list_scripts()
     assert listed == ["deploy.sh", "hello.py", "sub/task.py"]
     assert not any(part.startswith(".") for name in listed for part in name.split("/"))
+
+
+def test_list_and_resolve_scripts_in_configmap_layout(tmp_path, monkeypatch):
+    """A ConfigMap volume stores files under a hidden timestamped dir and
+    exposes them through symlinks (``deploy -> ..data/deploy``). Nested scripts
+    must be listed once, by their logical path, and still resolve."""
+    root = tmp_path / "scripts"
+    real = root / "..2026_01_01_00_00_00.000000001"
+    (real / "deploy").mkdir(parents=True)
+    (real / "deploy" / "rollout.sh").write_text("echo hi")
+    (real / "hello.py").write_text("print('hi')")
+    try:
+        os.symlink(real.name, root / "..data", target_is_directory=True)
+        os.symlink(os.path.join("..data", "deploy"), root / "deploy", target_is_directory=True)
+        os.symlink(os.path.join("..data", "hello.py"), root / "hello.py")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not permitted on this platform/user")
+
+    from app import scripts as script_utils
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "scripts_dir", root)
+
+    assert script_utils.list_scripts() == ["deploy/rollout.sh", "hello.py"]
+    assert script_utils.resolve_script("deploy/rollout.sh").read_text() == "echo hi"
 
 
 # --------------------------------------------------------------- pagination

@@ -1,0 +1,34 @@
+{{ .Values.branding.article }} {{ .Values.branding.name }} {{ .Chart.AppVersion }} is deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+1. Open the dashboard:
+{{- if .Values.route.enabled }}
+   https://$(oc get route {{ include "playbook.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.spec.host}')
+{{- else if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "playbook.fullname" . }} 8000:{{ .Values.service.port }}
+   then browse to http://localhost:8000
+{{- end }}
+
+2. Sign in to /admin with the admin password:
+{{- if .Values.auth.existingSecret }}
+   (taken from your Secret "{{ .Values.auth.existingSecret }}", key ADMIN_PASSWORD)
+{{- else }}
+   kubectl get secret {{ include "playbook.secretName" . }} -n {{ .Release.Namespace }} -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d; echo
+{{- end }}
+
+3. Scripts available to actions are mounted read-only at {{ .Values.scripts.mountPath }}
+{{- if and .Values.scripts.enabled (not .Values.scripts.existingConfigMap) }}
+   from ConfigMap "{{ include "playbook.scriptsConfigMapName" . }}":
+{{- range (include "playbook.scripts" . | fromJson).items }}
+     - {{ .path }}
+{{- end }}
+{{- end }}
+
+4. Verify the release:  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+{{- if or (not .Values.persistence.db.enabled) (not .Values.persistence.store.enabled) }}
+
+WARNING: persistence is disabled for at least one volume — data is lost when the pod restarts.
+{{- end }}

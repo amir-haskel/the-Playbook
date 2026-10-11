@@ -1,14 +1,7 @@
-.git
-.gitignore
-__pycache__/
-*.pyc
-.venv/
-venv/
-data/
-tests/
-*.md
-!README.md
-.env
-.env.*
-.pytest_cache/
-openshift/
+# Only app/, static/ and requirements.txt are needed in the build context.
+*
+!app/
+!static/
+!requirements.txt
+**/__pycache__/
+**/*.pyc

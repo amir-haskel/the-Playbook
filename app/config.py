@@ -1,4 +1,4 @@
-"""Environment-driven configuration for OpsPulse.
+"""Environment-driven configuration for the Playbook.
 
 All runtime configuration comes from environment variables (sourced from
 OpenShift Secrets in production). Nothing is hardcoded. Directories are
@@ -51,7 +51,9 @@ class Settings:
         # box. The container/OpenShift image overrides these to /data and
         # /scripts respectively.
         self.data_dir: Path = Path(_env("DATA_DIR", "./data")).resolve()
-        self.scripts_dir: Path = Path(_env("SCRIPTS_DIR", "./scripts")).resolve()
+        # Scripts ship with the Helm chart (rendered into a ConfigMap in the
+        # cluster); local dev reads the very same folder.
+        self.scripts_dir: Path = Path(_env("SCRIPTS_DIR", "./charts/playbook/scripts")).resolve()
 
         # Two INDEPENDENTLY-MOUNTABLE volumes, each defaulting to a subdirectory
         # of DATA_DIR so local dev still works with a single ./data folder:

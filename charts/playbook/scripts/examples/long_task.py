@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Long-running task that installs a SIGTERM handler and a finalizer, to
-demonstrate OpsPulse's graceful stop (the finalizer must run on Stop)."""
+demonstrate the Playbook's graceful stop (the finalizer must run on Stop)."""
 import os
 import signal
 import sys
@@ -21,7 +21,7 @@ try:
     signal.signal(signal.SIGINT, _on_term)
 except Exception:
     pass
-# On Windows, OpsPulse's graceful stop sends CTRL_BREAK (-> SIGBREAK); trap it
+# On Windows, the Playbook's graceful stop sends CTRL_BREAK (-> SIGBREAK); trap it
 # too so the finalizer also runs during local Windows testing.
 if hasattr(signal, "SIGBREAK"):
     try:

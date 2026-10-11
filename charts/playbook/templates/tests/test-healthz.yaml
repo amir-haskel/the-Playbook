@@ -1,0 +1,38 @@
+# `helm test <release>`: call /healthz through the Service. Re-uses the app image
+# (Python stdlib only) so the test also works in air-gapped clusters.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "playbook.fullname" . }}-test-healthz
+  labels:
+    {{- include "playbook.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    {{- include "playbook.podSecurityContext" . | nindent 4 }}
+  containers:
+    - name: healthz
+      image: {{ include "playbook.image" . }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      command:
+        - python
+        - -c
+        - |
+          import json, urllib.request
+          url = "http://{{ include "playbook.fullname" . }}:{{ .Values.service.port }}/healthz"
+          body = json.load(urllib.request.urlopen(url, timeout=10))
+          assert body["status"] == "ok", body
+          print("healthz ok:", body)
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
