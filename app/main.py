@@ -62,8 +62,8 @@ def _startup() -> None:
         logger.warning("Reconciled %d orphaned execution(s) to FAILED on startup", reconciled)
     for warning in settings.warnings():
         logger.warning(warning)
-    logger.info("OpsPulse %s started. DATA_DIR=%s SCRIPTS_DIR=%s",
-                __version__, settings.data_dir, settings.scripts_dir)
+    logger.info("OpsPulse %s started. DB_DIR=%s STORE_DIR=%s SCRIPTS_DIR=%s",
+                __version__, settings.db_dir, settings.store_dir, settings.scripts_dir)
 
 
 @app.middleware("http")

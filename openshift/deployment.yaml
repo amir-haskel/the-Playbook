@@ -23,16 +23,22 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: DATA_DIR
-              value: /data
+            # Two separate volumes (see volumeMounts below): the SQLite DB lives
+            # on its own PVC, execution outputs + uploads on another.
+            - name: DB_DIR
+              value: /data/db
+            - name: STORE_DIR
+              value: /data/store
             - name: SCRIPTS_DIR
               value: /scripts
           envFrom:
             - secretRef:
                 name: opspulse-secrets
           volumeMounts:
-            - name: data
-              mountPath: /data
+            - name: db
+              mountPath: /data/db
+            - name: store
+              mountPath: /data/store
             # Optional: mount operator-managed scripts from a ConfigMap instead
             # of baking them into the image. Uncomment and create the ConfigMap.
             # - name: scripts
@@ -57,9 +63,12 @@ spec:
               cpu: 500m
               memory: 512Mi
       volumes:
-        - name: data
+        - name: db
           persistentVolumeClaim:
-            claimName: opspulse-data
+            claimName: opspulse-db
+        - name: store
+          persistentVolumeClaim:
+            claimName: opspulse-store
         # - name: scripts
         #   configMap:
         #     name: opspulse-scripts

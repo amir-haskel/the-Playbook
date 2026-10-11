@@ -1,12 +1,31 @@
+# Two separate volumes: one for the SQLite database, one for execution history
+# (outputs) + upload staging. Keeping them apart lets each be sized, backed up,
+# and its storage class chosen independently. Both are ReadWriteOnce — the
+# Deployment stays at replicas:1 / strategy:Recreate (single SQLite writer).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: opspulse-data
+  name: opspulse-db
   labels:
     app: opspulse
+    volume: db
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 256Mi        # the DB is small; WAL/SHM live here too
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opspulse-store
+  labels:
+    app: opspulse
+    volume: store
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi          # history outputs + uploads — size to your retention

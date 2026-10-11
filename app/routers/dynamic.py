@@ -22,8 +22,12 @@ class DropdownTest(BaseModel):
 async def test_dropdown(cfg: DropdownTest) -> dict:
     """Admin: run a dynamic dropdown's config on demand (before saving the
     action) and return the fetched options, or a readable error."""
+    # Throwaway param used only to carry the dynamic config into fetch_options;
+    # its name is never surfaced, but it must still satisfy the Parameter name
+    # rule (must start with a letter), so use a plain placeholder rather than
+    # "_test" (a leading underscore is rejected by the name validator).
     param = Parameter(
-        name="_test",
+        name="Test",
         type=ParamType.dynamic_select,
         dynamic_type=cfg.dynamic_type,
         endpoint=cfg.endpoint,
