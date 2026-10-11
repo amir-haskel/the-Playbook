@@ -70,7 +70,7 @@ or bring your own ConfigMap (flat layout) with `scripts.existingConfigMap`.
 
 | Key | Default | Description |
 |---|---|---|
-| `image.repository` | `ghcr.io/amir-haskel/playbook` | Container image repository |
+| `image.repository` | `playbook` | Container image repository (set to your registry) |
 | `image.tag` | `""` (→ `appVersion`) | Image tag |
 | `image.digest` | `""` | Pin by digest (wins over tag) |
 | `branding.article` / `branding.name` | `the` / `Playbook` | Header wordmark |
@@ -109,8 +109,3 @@ helm lint charts/playbook --strict
 helm template pb charts/playbook | kubeconform -strict -summary
 helm test playbook -n playbook
 ```
-
-CI ([`.github/workflows/ci.yaml`](../../.github/workflows/ci.yaml)) runs all of the above,
-then installs the chart on a kind cluster with `restricted` Pod Security enforced,
-runs `helm test`, drives real executions through the API, and checks that an upgrade
-keeps generated secrets stable.

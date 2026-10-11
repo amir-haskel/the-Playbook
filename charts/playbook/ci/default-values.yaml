@@ -1,3 +1,0 @@
-# chart-testing: install with chart defaults (image overridden by the CI workflow).
-auth:
-  adminPassword: ci-admin-password
