@@ -56,7 +56,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
           helm push dist/playbook-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
       - name: GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*.tgz
           generate_release_notes: true
