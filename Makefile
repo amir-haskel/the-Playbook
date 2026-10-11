@@ -1,4 +1,4 @@
-# Developer shortcuts. Everything here is also what CI runs.
+# Developer shortcuts.
 IMAGE        ?= playbook
 TAG          ?= dev
 RELEASE      ?= playbook
@@ -28,9 +28,8 @@ lint: ## Python + shell lint
 image: ## Build the container image
 	docker build -t $(IMAGE):$(TAG) .
 
-chart-lint: ## helm lint with every CI values file
+chart-lint: ## helm lint the chart
 	helm lint $(CHART) --strict
-	for f in $(CHART)/ci/*-values.yaml; do helm lint $(CHART) --strict -f $$f; done
 
 chart-template: ## Render the chart to stdout
 	helm template $(RELEASE) $(CHART) -n $(NAMESPACE)

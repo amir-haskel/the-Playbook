@@ -2,7 +2,6 @@
 
 **A self-service developer portal that turns operator-owned scripts into one-click, parameterised actions, shipped as a hardened Helm chart for Kubernetes and OpenShift.**
 
-[![CI](https://github.com/amir-haskel/devops-dashboard/actions/workflows/ci.yaml/badge.svg)](https://github.com/amir-haskel/devops-dashboard/actions/workflows/ci.yaml)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![Helm](https://img.shields.io/badge/helm-v3-0f1689)
 ![OpenShift](https://img.shields.io/badge/OpenShift-restricted--v2%20SCC-ee0000)
@@ -21,7 +20,6 @@ the script produced. Nobody needs cluster credentials or a CLI, and every run is
 - [Deploying with Helm](#deploying-with-helm)
 - [Writing scripts](#writing-scripts)
 - [Local development](#local-development)
-- [CI/CD](#cicd)
 - [Configuration](#configuration)
 - [API](#api)
 - [Security model](#security-model)
@@ -88,6 +86,15 @@ chart pins one replica with the `Recreate` strategy.
 
 The chart in [`charts/playbook`](charts/playbook) is the supported way to run the Playbook. Full reference: [chart README](charts/playbook/README.md).
 
+Build the image and push it to a registry your cluster can pull from:
+
+```bash
+docker build -t registry.example.com/platform/playbook:1.0.0 .
+docker push registry.example.com/platform/playbook:1.0.0
+```
+
+Then install the chart, pointing it at that image (`--set image.repository=registry.example.com/platform/playbook --set image.tag=1.0.0`, or in a values file):
+
 ```bash
 # Kubernetes
 helm upgrade --install playbook ./charts/playbook -n playbook --create-namespace \
@@ -110,7 +117,7 @@ Highlights of the chart:
 - **Secrets** are generated once and preserved with `lookup`, or supplied via `auth.existingSecret` (External Secrets, Sealed Secrets, Vault).
 - **Restricted Pod Security**: non-root, read-only root filesystem, all capabilities dropped, seccomp `RuntimeDefault`, SA token not mounted, service links disabled.
 - **OpenShift-aware**: the chart detects OpenShift and lets the `restricted-v2` SCC assign the UID. Optional Route with a 1h timeout for long log streams.
-- `values.schema.json`, startup/readiness/liveness probes, an optional NetworkPolicy, a `helm test` hook, and chart-testing values in `ci/`.
+- `values.schema.json`, startup/readiness/liveness probes, an optional NetworkPolicy, and a `helm test` hook.
 
 ## Writing scripts
 
@@ -155,14 +162,6 @@ $env:ADMIN_PASSWORD = "changeme"; python -m uvicorn app.main:app --reload
 
 Other targets: `make test`, `make lint`, `make image`, `make chart-lint`, `make install` (current kube context) and
 `make screenshots` (regenerates the images in this README with Playwright).
-
-## CI/CD
-
-| Workflow | What it does |
-|---|---|
-| [`ci.yaml`](.github/workflows/ci.yaml) | Ruff, shellcheck and pytest · `helm lint --strict` for every CI values file · kubeconform on the rendered default, hardened and OpenShift manifests · Docker build + Trivy scan, pushed to GHCR from `main` · **end-to-end on kind**: install with `restricted` Pod Security enforced, `helm test`, check the mounted script tree, run real actions through the API, and confirm generated secrets survive `helm upgrade` |
-| [`release.yaml`](.github/workflows/release.yaml) | On a `v*.*.*` tag: multi-arch image with SBOM and provenance, chart packaged and pushed to `oci://ghcr.io/<owner>/charts`, GitHub release |
-| [`dependabot.yml`](.github/dependabot.yml) | Weekly updates for pip, the base image and GitHub Actions |
 
 ## Configuration
 
@@ -222,9 +221,7 @@ static/              Dashboard + admin UI (vanilla JS/CSS, no build step)
 charts/playbook/     Helm chart
   scripts/           The scripts behind the buttons, shipped as a ConfigMap
   templates/         Deployment, PVCs, Secret, ConfigMap, Service, Route, Ingress, NetworkPolicy, tests
-  ci/                chart-testing values
 hack/                seed_demo.py (demo catalog), screenshots.py (README images)
 tests/               Unit tests
 docs/images/         Screenshots
-.github/workflows/   CI and release pipelines
 ```

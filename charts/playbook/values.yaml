@@ -7,8 +7,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  # -- Container image repository.
-  repository: ghcr.io/amir-haskel/playbook
+  # -- Container image repository. Point it at the registry you pushed the image to
+  # (built from the repo's Dockerfile, e.g. `docker build -t <registry>/playbook:<tag> .`).
+  repository: playbook
   # -- Image tag. Defaults to the chart's `appVersion`.
   tag: ""
   # -- Image digest (`sha256:...`). When set it takes precedence over the tag (immutable deploys).

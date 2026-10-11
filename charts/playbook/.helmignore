@@ -9,5 +9,3 @@
 *.tmp
 *.orig
 *~
-# CI-only values files used by chart-testing
-ci/
