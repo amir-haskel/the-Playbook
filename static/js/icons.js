@@ -1,8 +1,8 @@
-/* OpsPulse icon set — bundled outline SVGs (no CDN, air-gapped).
+/* The Playbook icon set — bundled outline SVGs (no CDN, air-gapped).
  * Modern line icons in a devops vocabulary. Each entry is the inner markup of
  * a 24x24 viewBox; render() wraps it in an <svg> that inherits currentColor.
  *
- * Exposed on window.OpsIcons: { ICON_KEYS, render(key, size), has(key) }.
+ * Exposed on window.PlaybookIcons: { ICON_KEYS, render(key, size), has(key) }.
  */
 (() => {
   "use strict";
@@ -133,5 +133,5 @@
     );
   }
 
-  window.OpsIcons = { ICON_KEYS, render, has: (k) => k in ICONS };
+  window.PlaybookIcons = { ICON_KEYS, render, has: (k) => k in ICONS };
 })();

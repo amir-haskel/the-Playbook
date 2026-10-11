@@ -119,7 +119,7 @@ class ExecutionManager:
             script = script_utils.resolve_script(action.script_path)
             argv = script_utils.build_command(script, action.interpreter)
         except script_utils.ScriptError as exc:
-            await self._fail(execution, f"[opspulse] {exc}")
+            await self._fail(execution, f"[playbook] {exc}")
             return
 
         # Stage uploaded file params into the working dir (= output_dir). The
@@ -131,7 +131,7 @@ class ExecutionManager:
                 execution, action.parameters, values, staged_tokens, uploaded_names
             )
         except _UploadError as exc:
-            await self._fail(execution, f"[opspulse] {exc}")
+            await self._fail(execution, f"[playbook] {exc}")
             self._cleanup_uploads(staged_tokens)
             return
 
@@ -141,7 +141,7 @@ class ExecutionManager:
         env = os.environ.copy()
         env.update(env_extra)
         env["OUTPUTS_DIR"] = str(execution.output_dir)
-        env["OPSPULSE_EXECUTION_ID"] = execution.id
+        env["PLAYBOOK_EXECUTION_ID"] = execution.id
 
         await self._set_status(execution, ExecutionState.RUNNING)
         execution.lines.append(("stdout", f"$ {' '.join(argv)}"))
@@ -164,7 +164,7 @@ class ExecutionManager:
                 **popen_kwargs,
             )
         except OSError as exc:
-            await self._fail(execution, f"[opspulse] failed to launch script: {exc}")
+            await self._fail(execution, f"[playbook] failed to launch script: {exc}")
             self._cleanup_uploads(staged_tokens)
             return
 

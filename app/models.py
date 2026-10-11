@@ -1,4 +1,4 @@
-"""Pydantic schemas for OpsPulse actions, parameters and executions."""
+"""Pydantic schemas for Playbook actions, parameters and executions."""
 from __future__ import annotations
 
 import re

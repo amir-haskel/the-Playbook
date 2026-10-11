@@ -1,4 +1,4 @@
-"""Outbound HTTP for dynamic dropdowns — the ONLY place OpsPulse calls APIs.
+"""Outbound HTTP for dynamic dropdowns — the ONLY place the Playbook calls APIs.
 
 A dropdown parameter declares an endpoint, an optional secret-bearing auth
 header, and a ``response_key`` describing how to pluck option values out of the

@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, status
 
 from .config import settings
 
-SESSION_KEY = "opspulse_admin"
+SESSION_KEY = "playbook_admin"
 
 
 def verify_password(candidate: str) -> bool:

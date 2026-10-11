@@ -1,4 +1,4 @@
-"""OpsPulse FastAPI application entrypoint.
+"""The Playbook FastAPI application entrypoint.
 
 Single container: serves the static SPA-ish frontend, the JSON/SSE API, and
 artifact downloads. All state persists in PVC-backed SQLite under DATA_DIR.
@@ -16,7 +16,7 @@ from pathlib import Path
 mimetypes.add_type("font/woff2", ".woff2")
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -26,18 +26,18 @@ from .config import settings
 from .database import init_db
 from .routers import actions, admin, download, dynamic, execute, settings as settings_router, tags, uploads
 
-logger = logging.getLogger("opspulse")
+logger = logging.getLogger("playbook")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="OpsPulse", version=__version__)
+app = FastAPI(title="The Playbook", version=__version__)
 
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
-    session_cookie="opspulse_session",
+    session_cookie="playbook_session",
     same_site="lax",
     https_only=False,  # served behind the OpenShift TLS-terminating route
 )
@@ -62,7 +62,7 @@ def _startup() -> None:
         logger.warning("Reconciled %d orphaned execution(s) to FAILED on startup", reconciled)
     for warning in settings.warnings():
         logger.warning(warning)
-    logger.info("OpsPulse %s started. DB_DIR=%s STORE_DIR=%s SCRIPTS_DIR=%s",
+    logger.info("Playbook %s started. DB_DIR=%s STORE_DIR=%s SCRIPTS_DIR=%s",
                 __version__, settings.db_dir, settings.store_dir, settings.scripts_dir)
 
 

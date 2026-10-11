@@ -1,4 +1,4 @@
-/* OpsPulse dashboard: unified card grid, tag filter chips, execution modal,
+/* The Playbook dashboard: unified card grid, tag filter chips, execution modal,
  * SSE streaming. Tags carry the color; icons are bundled SVGs. */
 (() => {
   "use strict";
@@ -20,7 +20,7 @@
   const filterBar = el("filter-bar");
   const search = el("search");
   const modal = el("modal");
-  const icon = (key, size) => (window.OpsIcons ? window.OpsIcons.render(key, size) : "");
+  const icon = (key, size) => (window.PlaybookIcons ? window.PlaybookIcons.render(key, size) : "");
   const tagClass = (color) => "tag-" + (color || "slate");
   // A checkbox param whose options are fetched from a dynamic source (endpoint /
   // dynamic_type) and rendered as a multi-select checkbox group.

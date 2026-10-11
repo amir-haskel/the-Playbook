@@ -205,7 +205,7 @@ async def _replay_generator(execution_id: str, row: dict, request: Request):
         # reconciled to a terminal state on boot.
         yield _sse(
             "stderr",
-            {"line": "[opspulse] output not available (server restarted during this run)."},
+            {"line": "[playbook] output not available (server restarted during this run)."},
         )
     else:
         start = _resume_index(request)

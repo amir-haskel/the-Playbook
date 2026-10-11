@@ -1,4 +1,4 @@
-/* OpsPulse — night sky for dark mode: two parallax star layers + meteors.
+/* The Playbook — night sky for dark mode: two parallax star layers + meteors.
  *
  * Design notes (why it looks the way it does):
  *

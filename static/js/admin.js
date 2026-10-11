@@ -1,11 +1,11 @@
-/* OpsPulse admin builder: login, tag bank, action/param editor with icon
+/* The Playbook admin builder: login, tag bank, action/param editor with icon
  * picker and multi-tag selection. */
 (() => {
   "use strict";
 
   const API = "/api/v1";
   const el = (id) => document.getElementById(id);
-  const icon = (key, size) => (window.OpsIcons ? window.OpsIcons.render(key, size) : "");
+  const icon = (key, size) => (window.PlaybookIcons ? window.PlaybookIcons.render(key, size) : "");
   const tagClass = (c) => "tag-" + (c || "slate");
 
   let actions = [];
@@ -234,7 +234,7 @@
     el("e-output").value = isNew ? "" : action.output_subdir || "";
     el("delete-action").classList.toggle("hidden", isNew);
 
-    selectedIcon = isNew ? "rocket" : (window.OpsIcons && window.OpsIcons.has(action.icon) ? action.icon : "box");
+    selectedIcon = isNew ? "rocket" : (window.PlaybookIcons && window.PlaybookIcons.has(action.icon) ? action.icon : "box");
     const details = isNew ? [] : (action.tag_details || []);
     selectedFunc = (details.find((t) => t.type !== "team") || {}).id || null;
     selectedTeam = (details.find((t) => t.type === "team") || {}).id || null;
@@ -250,7 +250,7 @@
   function renderIconPicker() {
     const grid = el("e-icons");
     grid.innerHTML = "";
-    for (const key of (window.OpsIcons ? window.OpsIcons.ICON_KEYS : [])) {
+    for (const key of (window.PlaybookIcons ? window.PlaybookIcons.ICON_KEYS : [])) {
       const cell = document.createElement("div");
       cell.className = "icon-cell" + (key === selectedIcon ? " selected" : "");
       cell.title = key;
