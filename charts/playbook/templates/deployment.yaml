@@ -1,0 +1,177 @@
+{{- $scripts := list }}
+{{- if and .Values.scripts.enabled (not .Values.scripts.existingConfigMap) }}
+{{- $scripts = (include "playbook.scripts" . | fromJson).items }}
+{{- end }}
+{{- $nested := false }}
+{{- range $scripts }}{{ if contains "/" .path }}{{ $nested = true }}{{ end }}{{ end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "playbook.fullname" . }}
+  labels:
+    {{- include "playbook.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  # SQLite is a single-writer database: exactly one pod, and the old pod must be
+  # gone before the new one opens the volume. Do not scale this Deployment.
+  replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "playbook.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if not .Values.auth.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.scripts.restartOnChange $scripts }}
+        checksum/scripts: {{ include (print $.Template.BasePath "/configmap-scripts.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "playbook.labels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "playbook.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      # Scripts inherit the app's environment; don't leak every Service in the
+      # namespace into it as *_SERVICE_HOST/PORT variables.
+      enableServiceLinks: false
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- include "playbook.podSecurityContext" . | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: playbook
+          image: {{ include "playbook.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DATA_DIR
+              value: /data
+            - name: DB_DIR
+              value: {{ .Values.persistence.db.mountPath | quote }}
+            - name: STORE_DIR
+              value: {{ .Values.persistence.store.mountPath | quote }}
+            - name: SCRIPTS_DIR
+              value: {{ .Values.scripts.mountPath | quote }}
+            # Root FS is read-only: give Python and scripts a writable HOME/TMPDIR.
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+            - name: BRAND_ARTICLE
+              value: {{ .Values.branding.article | quote }}
+            - name: BRAND_NAME
+              value: {{ .Values.branding.name | quote }}
+            - name: HTTP_TIMEOUT
+              value: {{ .Values.httpTimeout | quote }}
+            {{- with .Values.integrations.gitlab.url }}
+            - name: GITLAB_API_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.integrations.openshift.url }}
+            - name: OPENSHIFT_API_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "playbook.secretName" . }}
+            {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.probes.startup }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.probes.readiness }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.probes.liveness }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: db
+              mountPath: {{ .Values.persistence.db.mountPath }}
+            - name: store
+              mountPath: {{ .Values.persistence.store.mountPath }}
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.scripts.enabled }}
+            - name: scripts
+              mountPath: {{ .Values.scripts.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- range $name := list "db" "store" }}
+        {{- $p := index $.Values.persistence $name }}
+        - name: {{ $name }}
+          {{- if $p.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ $p.existingClaim | default (printf "%s-%s" (include "playbook.fullname" $) $name) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.scripts.enabled }}
+        - name: scripts
+          configMap:
+            name: {{ include "playbook.scriptsConfigMapName" . }}
+            defaultMode: {{ .Values.scripts.defaultMode }}
+            {{- if $nested }}
+            # Map flattened ConfigMap keys back to their original sub-paths.
+            # (Only emitted for nested layouts: with a flat layout, adding a
+            # script never touches the pod spec, so it hot-loads without a rollout.)
+            items:
+              {{- range $scripts }}
+              - key: {{ .key }}
+                path: {{ .path }}
+              {{- end }}
+            {{- end }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,33 @@
+{{- range $name := list "db" "store" }}
+{{- $p := index $.Values.persistence $name }}
+{{- if and $p.enabled (not $p.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "playbook.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "playbook.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  {{- if or $p.retain $p.annotations }}
+  annotations:
+    {{- if $p.retain }}
+    # Survive `helm uninstall` so execution history and the database are never
+    # deleted by accident. Remove the PVC manually to reclaim the storage.
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with $p.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml $p.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ $p.size | quote }}
+  {{- if $p.storageClass }}
+  storageClassName: {{ if eq "-" $p.storageClass }}""{{ else }}{{ $p.storageClass | quote }}{{ end }}
+  {{- end }}
+{{- end }}
+{{- end }}

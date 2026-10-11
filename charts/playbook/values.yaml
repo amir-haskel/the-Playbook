@@ -1,0 +1,276 @@
+# Default values for the Playbook chart.
+# Every key is documented with helm-docs `# --` comments; see README.md for the table.
+
+# -- Override the chart name used in resource names and labels.
+nameOverride: ""
+# -- Override the fully-qualified release name used for resource names.
+fullnameOverride: ""
+
+image:
+  # -- Container image repository.
+  repository: ghcr.io/amir-haskel/playbook
+  # -- Image tag. Defaults to the chart's `appVersion`.
+  tag: ""
+  # -- Image digest (`sha256:...`). When set it takes precedence over the tag (immutable deploys).
+  digest: ""
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+
+# -- Pull secrets for private registries, e.g. `[{name: my-registry}]`.
+imagePullSecrets: []
+
+# The app keeps its state in SQLite (single writer), so the Deployment always runs
+# exactly ONE replica with the `Recreate` strategy. This is intentional and not
+# configurable: two pods must never open the same database at once.
+
+branding:
+  # -- Small leading word of the header wordmark (may be empty).
+  article: "the"
+  # -- Emphasised word of the header wordmark.
+  name: "Playbook"
+
+# -- Timeout (seconds) for dynamic dropdown HTTP fetches.
+httpTimeout: 15
+
+auth:
+  # -- Admin password for `/admin`. Leave empty to auto-generate one on first
+  # install (kept stable across upgrades). Ignored when `auth.existingSecret` is set.
+  adminPassword: ""
+  # -- Session-cookie signing key. Leave empty to auto-generate (kept stable across upgrades).
+  sessionSecret: ""
+  # -- Use a pre-created Secret instead of the chart-managed one (recommended with
+  # External Secrets / Sealed Secrets / Vault). Must contain `ADMIN_PASSWORD` and
+  # `SESSION_SECRET`, and optionally `GITLAB_TOKEN` / `OPENSHIFT_TOKEN`.
+  existingSecret: ""
+
+integrations:
+  # Outbound API access is used ONLY to populate dynamic dropdowns; tokens stay server-side.
+  gitlab:
+    # -- GitLab API base URL, e.g. `https://gitlab.example.com/api/v4`.
+    url: ""
+    # -- GitLab token (stored in the chart-managed Secret).
+    token: ""
+  openshift:
+    # -- OpenShift/Kubernetes API URL, e.g. `https://api.cluster.example.com:6443`.
+    url: ""
+    # -- Bearer token for the API (stored in the chart-managed Secret).
+    token: ""
+
+scripts:
+  # -- Render every file under the chart's `scripts/` directory (plus `scripts.inline`)
+  # into a ConfigMap and mount it at `scripts.mountPath`. Disable to bake scripts
+  # into the image instead.
+  enabled: true
+  # -- Where scripts are mounted; exported to the app as `SCRIPTS_DIR`.
+  mountPath: /scripts
+  # -- Glob (relative to the chart root) of files to ship. Sub-directories are preserved.
+  glob: "scripts/**"
+  # -- Extra scripts defined in values (`relative/path.sh: <content>`), merged with
+  # the files on disk. Handy with `--set-file` or an environment-specific values file.
+  inline: {}
+  # -- File mode for mounted scripts (read + execute, never writable).
+  defaultMode: 0555
+  # -- Mount an existing ConfigMap of scripts instead of rendering one (flat layout).
+  existingConfigMap: ""
+  # -- Roll the pod when scripts change. Off by default: the ConfigMap volume
+  # is hot-updated by the kubelet (~1 min) and the app re-scans on every request,
+  # so new scripts appear without killing in-flight executions.
+  restartOnChange: false
+
+persistence:
+  # The SQLite database and the execution store live on two separate volumes so
+  # each can be sized, backed up and placed on a storage class independently.
+  db:
+    # -- Persist the SQLite database. When false an `emptyDir` is used (data lost on restart).
+    enabled: true
+    # -- Mount path; exported to the app as `DB_DIR`.
+    mountPath: /data/db
+    # -- Use an existing PVC instead of creating one.
+    existingClaim: ""
+    # -- StorageClass (`""` = cluster default, `"-"` = no class / static binding).
+    storageClass: ""
+    # -- Access modes for the DB volume.
+    accessModes:
+      - ReadWriteOnce
+    # -- Requested size. The database itself is small.
+    size: 256Mi
+    # -- Keep the PVC when the release is uninstalled (protects history from `helm uninstall`).
+    retain: true
+    # -- Extra annotations for the PVC (e.g. backup tooling hints).
+    annotations: {}
+  store:
+    # -- Persist execution outputs and upload staging. When false an `emptyDir` is used.
+    enabled: true
+    # -- Mount path; exported to the app as `STORE_DIR`.
+    mountPath: /data/store
+    # -- Use an existing PVC instead of creating one.
+    existingClaim: ""
+    # -- StorageClass (`""` = cluster default, `"-"` = no class / static binding).
+    storageClass: ""
+    # -- Access modes for the store volume.
+    accessModes:
+      - ReadWriteOnce
+    # -- Requested size — size it to the history retention you configure in Admin.
+    size: 5Gi
+    # -- Keep the PVC when the release is uninstalled.
+    retain: true
+    # -- Extra annotations for the PVC.
+    annotations: {}
+
+# -- Extra environment variables for the app container (and therefore for scripts),
+# e.g. non-secret settings your scripts read.
+extraEnv: []
+#  - name: NEXUS_URL
+#    value: https://nexus.example.com
+
+# -- Extra `envFrom` sources, e.g. a Secret holding tokens referenced by
+# dropdown auth headers (`PRIVATE-TOKEN: ${NEXUS_TOKEN}`) or used by scripts.
+extraEnvFrom: []
+#  - secretRef:
+#      name: nexus-credentials
+
+# -- Extra volumes for the pod (e.g. a kubeconfig or CA bundle used by scripts).
+extraVolumes: []
+# -- Extra volume mounts for the app container.
+extraVolumeMounts: []
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount.
+  create: true
+  # -- Name of the ServiceAccount (generated from the fullname when empty).
+  name: ""
+  # -- Annotations for the ServiceAccount (e.g. workload identity).
+  annotations: {}
+  # -- Mount the ServiceAccount token. Off by default (least privilege); enable
+  # only if your scripts call the Kubernetes API with the pod identity.
+  automount: false
+
+# -- Annotations added to the pod.
+podAnnotations: {}
+# -- Labels added to the pod.
+podLabels: {}
+
+openshift:
+  # -- Adapt the security context for OpenShift's restricted SCC: `auto` detects
+  # OpenShift via its APIs and drops the fixed `runAsUser`/`runAsGroup`/`fsGroup`
+  # so the SCC can assign a namespace UID. `force` always drops them, `disabled` never does.
+  adaptSecurityContext: auto
+
+# -- Pod-level security context (restricted Pod Security Standard).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 0
+  fsGroup: 0
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container-level security context (restricted Pod Security Standard).
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  # -- Service type.
+  type: ClusterIP
+  # -- Service port.
+  port: 8000
+  # -- Extra Service annotations.
+  annotations: {}
+
+route:
+  # -- Create an OpenShift Route.
+  enabled: false
+  # -- Hostname (empty lets the router generate one).
+  host: ""
+  # -- Route annotations. The default 1h timeout keeps long SSE log streams open.
+  annotations:
+    haproxy.router.openshift.io/timeout: 1h
+  tls:
+    # -- Terminate TLS at the router.
+    enabled: true
+    # -- TLS termination type.
+    termination: edge
+    # -- What to do with plain-HTTP requests.
+    insecureEdgeTerminationPolicy: Redirect
+
+ingress:
+  # -- Create a Kubernetes Ingress.
+  enabled: false
+  # -- IngressClass name.
+  className: ""
+  # -- Ingress annotations. The defaults keep SSE streams unbuffered and open (ingress-nginx).
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+  # -- Ingress hosts and paths.
+  hosts:
+    - host: playbook.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- TLS configuration, e.g. `[{secretName: playbook-tls, hosts: [playbook.local]}]`.
+  tls: []
+
+# -- Resource requests/limits. No CPU limit by default (avoids CFS throttling of
+# script bursts); memory is limited because scripts run inside the pod.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+probes:
+  # -- Startup probe (gives the app time to migrate the DB on first boot).
+  startup:
+    httpGet:
+      path: /healthz
+      port: http
+    periodSeconds: 2
+    failureThreshold: 30
+  # -- Readiness probe.
+  readiness:
+    httpGet:
+      path: /healthz
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 3
+  # -- Liveness probe.
+  liveness:
+    httpGet:
+      path: /healthz
+      port: http
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# -- Seconds Kubernetes waits after SIGTERM before killing the pod. Raise it if
+# scripts need time to finish their cleanup traps during a rollout.
+terminationGracePeriodSeconds: 30
+
+networkPolicy:
+  # -- Create a NetworkPolicy that only admits traffic to the HTTP port.
+  enabled: false
+  # -- Allowed ingress peers. Defaults to the OpenShift router namespace.
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+  # -- Egress rules. Empty = egress unrestricted (scripts and dropdowns need outbound access).
+  egress: []
+
+# -- Priority class for the pod.
+priorityClassName: ""
+# -- Node selector.
+nodeSelector: {}
+# -- Tolerations.
+tolerations: []
+# -- Affinity rules.
+affinity: {}

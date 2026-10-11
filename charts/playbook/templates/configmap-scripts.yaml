@@ -1,0 +1,17 @@
+{{- if and .Values.scripts.enabled (not .Values.scripts.existingConfigMap) }}
+{{- $data := dict }}
+{{- range (include "playbook.scripts" . | fromJson).items }}
+{{- $_ := set $data .key .content }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "playbook.scriptsConfigMapName" . }}
+  labels:
+    {{- include "playbook.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scripts
+{{- if $data }}
+data:
+  {{- toYaml $data | nindent 2 }}
+{{- end }}
+{{- end }}

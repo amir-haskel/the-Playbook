@@ -1,4 +1,4 @@
-"""SQLite persistence for OpsPulse.
+"""SQLite persistence for the Playbook.
 
 The pod is stateless; all configuration and execution history live in a SQLite
 database on the PVC-mounted DATA_DIR. Concurrency is low (a config store plus

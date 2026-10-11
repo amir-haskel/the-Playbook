@@ -6,7 +6,13 @@ venv/
 .env.local
 /data/
 .pytest_cache/
+.ruff_cache/
 *.egg-info/
 .DS_Store
 *.tar
-opspulse-wheelhouse/
+*.tgz
+*-wheelhouse/
+
+# Local-only notes and tooling state
+PROJECT_STATE.md
+.claude/

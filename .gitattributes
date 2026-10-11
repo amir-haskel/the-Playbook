@@ -1,0 +1,4 @@
+# Normalise line endings in the repo; scripts must stay LF so they run on Linux.
+* text=auto eol=lf
+*.woff2 binary
+*.png binary

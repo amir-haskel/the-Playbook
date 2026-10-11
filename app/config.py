@@ -1,4 +1,4 @@
-"""Environment-driven configuration for OpsPulse.
+"""Environment-driven configuration for the Playbook.
 
 All runtime configuration comes from environment variables (sourced from
 OpenShift Secrets in production). Nothing is hardcoded. Directories are
@@ -27,6 +27,13 @@ class Settings:
         self.gitlab_token: str = _env("GITLAB_TOKEN")
         self.openshift_token: str = _env("OPENSHIFT_TOKEN")
 
+        # --- Branding (wordmark shown in the header + page titles) ---
+        # Split into two parts so the name can be re-labelled without touching
+        # code: BRAND_ARTICLE is the small leading word ("the"), BRAND_NAME is
+        # the emphasised word ("Playbook"). Either may be blank.
+        self.brand_article: str = _env("BRAND_ARTICLE", "the")
+        self.brand_name: str = _env("BRAND_NAME", "Playbook")
+
         # --- Admin auth ---
         self.admin_password: str = _env("ADMIN_PASSWORD")
 
@@ -44,12 +51,23 @@ class Settings:
         # box. The container/OpenShift image overrides these to /data and
         # /scripts respectively.
         self.data_dir: Path = Path(_env("DATA_DIR", "./data")).resolve()
-        self.scripts_dir: Path = Path(_env("SCRIPTS_DIR", "./scripts")).resolve()
+        # Scripts ship with the Helm chart (rendered into a ConfigMap in the
+        # cluster); local dev reads the very same folder.
+        self.scripts_dir: Path = Path(_env("SCRIPTS_DIR", "./charts/playbook/scripts")).resolve()
 
-        self.db_path: Path = self.data_dir / "app.db"
-        self.outputs_dir: Path = self.data_dir / "outputs"
+        # Two INDEPENDENTLY-MOUNTABLE volumes, each defaulting to a subdirectory
+        # of DATA_DIR so local dev still works with a single ./data folder:
+        #   DB_DIR    -> the SQLite database (its own PVC in production). Keep the
+        #                DB on one volume; WAL/SHM sidecar files live beside it.
+        #   STORE_DIR -> execution history outputs + upload staging (its own PVC).
+        # In OpenShift, mount one volume at DB_DIR and another at STORE_DIR.
+        self.db_dir: Path = Path(_env("DB_DIR", str(self.data_dir / "db"))).resolve()
+        self.store_dir: Path = Path(_env("STORE_DIR", str(self.data_dir / "store"))).resolve()
+
+        self.db_path: Path = self.db_dir / "app.db"
+        self.outputs_dir: Path = self.store_dir / "outputs"
         # Staging area for user-uploaded file params before execution.
-        self.uploads_dir: Path = self.data_dir / "uploads"
+        self.uploads_dir: Path = self.store_dir / "uploads"
 
         # HTTP client timeout (seconds) for dropdown fetches.
         self.http_timeout: float = float(_env("HTTP_TIMEOUT", "15"))
@@ -58,6 +76,9 @@ class Settings:
     def ensure_dirs(self) -> None:
         """Create writable directories. Called on startup."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        # DB volume + store volume (each may be a separate PVC mount).
+        self.db_dir.mkdir(parents=True, exist_ok=True)
+        self.store_dir.mkdir(parents=True, exist_ok=True)
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
         # SCRIPTS_DIR may be a read-only mount; only create it if missing.
@@ -81,6 +102,29 @@ class Settings:
             )
         if not self.scripts_dir.exists():
             out.append(f"SCRIPTS_DIR does not exist: {self.scripts_dir}")
+
+        # Persistence self-check (Kubernetes/OpenShift only). If DB_DIR or
+        # STORE_DIR sits on the SAME filesystem as the container root, it is NOT
+        # a mounted volume — anything written there is lost when the pod
+        # restarts. This is the #1 cause of "my data disappeared after restart":
+        # the PVC mountPath does not match where the app actually writes. A dir
+        # on a PVC (even a subdir of the mount) has a different st_dev than "/".
+        if os.environ.get("KUBERNETES_SERVICE_HOST"):
+            try:
+                root_dev = os.stat(os.sep).st_dev
+            except OSError:
+                root_dev = None
+            for label, d in (("DB_DIR", self.db_dir), ("STORE_DIR", self.store_dir)):
+                try:
+                    same = root_dev is not None and os.stat(d).st_dev == root_dev
+                except OSError:
+                    same = False
+                if same:
+                    out.append(
+                        f"{label} ({d}) is on the container root filesystem, NOT a "
+                        f"mounted volume — data written here WILL BE LOST on restart. "
+                        f"Mount a PersistentVolumeClaim at (or above) this exact path."
+                    )
         return out
 
 

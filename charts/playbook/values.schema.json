@@ -1,0 +1,199 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Values for the Playbook chart",
+  "type": "object",
+  "required": ["image", "auth", "scripts", "persistence", "service"],
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "digest": { "type": "string", "pattern": "^(sha256:[a-f0-9]{64})?$" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } }
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "article": { "type": "string", "maxLength": 20 },
+        "name": { "type": "string", "maxLength": 40 }
+      }
+    },
+    "httpTimeout": { "type": "number", "exclusiveMinimum": 0 },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "adminPassword": { "type": "string" },
+        "sessionSecret": { "type": "string" },
+        "existingSecret": { "type": "string" }
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gitlab": { "$ref": "#/definitions/integration" },
+        "openshift": { "$ref": "#/definitions/integration" }
+      }
+    },
+    "scripts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mountPath": { "$ref": "#/definitions/absolutePath" },
+        "glob": { "type": "string", "minLength": 1 },
+        "inline": { "type": "object", "additionalProperties": { "type": "string" } },
+        "defaultMode": { "type": "integer", "minimum": 0, "maximum": 511 },
+        "existingConfigMap": { "type": "string" },
+        "restartOnChange": { "type": "boolean" }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "required": ["db", "store"],
+      "additionalProperties": false,
+      "properties": {
+        "db": { "$ref": "#/definitions/volume" },
+        "store": { "$ref": "#/definitions/volume" }
+      }
+    },
+    "extraEnv": { "type": "array", "items": { "type": "object", "required": ["name"] } },
+    "extraEnvFrom": { "type": "array", "items": { "type": "object" } },
+    "extraVolumes": { "type": "array", "items": { "type": "object", "required": ["name"] } },
+    "extraVolumeMounts": { "type": "array", "items": { "type": "object", "required": ["name", "mountPath"] } },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": { "type": "object" },
+        "automount": { "type": "boolean" }
+      }
+    },
+    "podAnnotations": { "type": "object" },
+    "podLabels": { "type": "object" },
+    "openshift": {
+      "type": "object",
+      "properties": {
+        "adaptSecurityContext": { "enum": ["auto", "force", "disabled"] }
+      }
+    },
+    "podSecurityContext": { "type": "object" },
+    "securityContext": { "type": "object" },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "annotations": { "type": "object" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "host": { "type": "string" },
+        "annotations": { "type": "object" },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "termination": { "enum": ["edge", "reencrypt", "passthrough"] },
+            "insecureEdgeTerminationPolicy": { "enum": ["Redirect", "Allow", "None"] }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object" },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["host", "paths"],
+            "properties": {
+              "host": { "type": "string" },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path", "pathType"],
+                  "properties": {
+                    "path": { "type": "string" },
+                    "pathType": { "enum": ["Prefix", "Exact", "ImplementationSpecific"] }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tls": { "type": "array" }
+      }
+    },
+    "resources": { "type": "object" },
+    "probes": { "type": "object" },
+    "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ingressFrom": { "type": "array" },
+        "egress": { "type": "array" }
+      }
+    },
+    "priorityClassName": { "type": "string" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" }
+  },
+  "definitions": {
+    "absolutePath": { "type": "string", "pattern": "^/" },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string" },
+        "token": { "type": "string" }
+      }
+    },
+    "volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mountPath": { "$ref": "#/definitions/absolutePath" },
+        "existingClaim": { "type": "string" },
+        "storageClass": { "type": "string" },
+        "accessModes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["ReadWriteOnce", "ReadWriteOncePod", "ReadWriteMany", "ReadOnlyMany"] }
+        },
+        "size": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|K|M|G|T|P)?$" },
+        "retain": { "type": "boolean" },
+        "annotations": { "type": "object" }
+      }
+    }
+  }
+}

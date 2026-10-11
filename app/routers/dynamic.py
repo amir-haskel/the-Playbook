@@ -22,8 +22,12 @@ class DropdownTest(BaseModel):
 async def test_dropdown(cfg: DropdownTest) -> dict:
     """Admin: run a dynamic dropdown's config on demand (before saving the
     action) and return the fetched options, or a readable error."""
+    # Throwaway param used only to carry the dynamic config into fetch_options;
+    # its name is never surfaced, but it must still satisfy the Parameter name
+    # rule (must start with a letter), so use a plain placeholder rather than
+    # "_test" (a leading underscore is rejected by the name validator).
     param = Parameter(
-        name="_test",
+        name="Test",
         type=ParamType.dynamic_select,
         dynamic_type=cfg.dynamic_type,
         endpoint=cfg.endpoint,
@@ -58,8 +62,15 @@ async def dynamic_options(
     )
     if parameter is None:
         raise HTTPException(status_code=404, detail="Parameter not found")
-    if parameter.type.value != "dynamic_select":
-        raise HTTPException(status_code=400, detail="Parameter is not a dynamic dropdown")
+    # A dynamic dropdown (dynamic_select) or a checkbox group whose options are
+    # fetched from a dynamic source both resolve options the same way — they just
+    # render differently on the run form.
+    is_dynamic_select = parameter.type.value == "dynamic_select"
+    is_dynamic_checkbox = parameter.type.value == "checkbox" and bool(
+        parameter.endpoint or parameter.dynamic_type
+    )
+    if not (is_dynamic_select or is_dynamic_checkbox):
+        raise HTTPException(status_code=400, detail="Parameter has no dynamic source")
 
     # ``type`` from the path takes precedence for source resolution.
     if type and type != "custom":

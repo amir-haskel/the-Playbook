@@ -183,6 +183,26 @@ def get_history_limit() -> int:
         return DEFAULT_HISTORY_LIMIT
 
 
+def reconcile_orphaned_executions() -> int:
+    """Mark executions left in RUNNING/PENDING as FAILED.
+
+    The ``ExecutionManager`` is in-memory only, so a run that was in flight when
+    the server/pod stopped can never reach a terminal state on its own. Called
+    once on startup so history rows are not stuck 'running' forever. Returns the
+    number of rows reconciled.
+    """
+    rows = db.query_all(
+        "SELECT id FROM executions WHERE status IN ('RUNNING', 'PENDING')"
+    )
+    now = _utcnow()
+    for row in rows:
+        db.execute(
+            "UPDATE executions SET status='FAILED', finished_at=? WHERE id=?",
+            (now, row["id"]),
+        )
+    return len(rows)
+
+
 def prune_executions(limit: int | None = None) -> int:
     """Keep only the newest ``limit`` executions; delete older rows, their
     artifact records, and their on-disk output directories. Returns the count

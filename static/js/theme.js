@@ -3,7 +3,7 @@
  * file wires the toggle button and keeps the icon in sync. */
 (() => {
   "use strict";
-  const KEY = "opspulse-theme";
+  const KEY = "playbook-theme";
 
   const systemDark = () =>
     window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -22,7 +22,9 @@
     const btn = document.getElementById("theme-toggle");
     if (!btn) return;
     const dark = theme === "dark";
-    btn.textContent = dark ? "☀" : "☾";
+    // Show the icon of the mode you'd switch TO: sun in dark, moon in light.
+    const key = dark ? "sun" : "moon";
+    btn.innerHTML = window.PlaybookIcons ? window.PlaybookIcons.render(key, 21) : (dark ? "☀" : "☾");
     btn.setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} mode`);
     btn.title = `Switch to ${dark ? "light" : "dark"} mode`;
   }

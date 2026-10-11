@@ -6,6 +6,7 @@ rejected — so an action can only ever run a script the operator placed there.
 """
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -33,9 +34,19 @@ def list_scripts() -> list[str]:
     if not root.exists():
         return []
     found: list[str] = []
-    for path in root.rglob("*"):
-        if path.is_file() and path.suffix.lower() in _EXT_INTERPRETER:
-            found.append(path.relative_to(root).as_posix())
+    # os.walk with followlinks: a Kubernetes ConfigMap volume exposes each entry
+    # as a symlink into a hidden "..data/" dir, so sub-folders are symlinked
+    # directories that must be followed (pathlib's rglob stops following them
+    # on newer Pythons).
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+        # Exclude hidden dirs (.git/, and the ConfigMap's own ..data/ and
+        # timestamped ..2024_* dirs) so each script is listed exactly once.
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in filenames:
+            # Exclude hidden/dotfiles (.gitkeep, .DS_Store, .env).
+            if name.startswith(".") or Path(name).suffix.lower() not in _EXT_INTERPRETER:
+                continue
+            found.append((Path(dirpath) / name).relative_to(root).as_posix())
     return sorted(found)
 
 

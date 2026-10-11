@@ -1,4 +1,4 @@
-/* OpsPulse — vendored utility + component CSS.
+/* The Playbook — vendored utility + component CSS.
  * Air-gapped: no CDN, no external fonts. Design language is calm, warm and
  * enterprise-mature (Island-inspired): bone-paper light theme, soft charcoal
  * dark theme, a muted teal primary, and gentle desaturated accents.
@@ -53,8 +53,24 @@
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --team-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Display stack for the wordmark — the bundled Fraunces serif (below), falling
+   * back to a system serif if it somehow fails to load. */
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
 
   color-scheme: light;
+}
+
+/* ===================== BUNDLED FONT (self-hosted, air-gapped) ===================== */
+/* Fraunces — SIL OFL, committed under /static/fonts (see OFL-Fraunces.txt). An
+ * editorial "old-style" display serif, used for the wordmark only; body/UI text
+ * stays on the system sans stack. */
+@font-face {
+  font-family: "Fraunces"; font-style: normal; font-weight: 500;
+  font-display: swap; src: url("/static/fonts/fraunces-500.woff2?v=29") format("woff2");
+}
+@font-face {
+  font-family: "Fraunces"; font-style: normal; font-weight: 700;
+  font-display: swap; src: url("/static/fonts/fraunces-700.woff2?v=29") format("woff2");
 }
 
 /* ============================ TOKENS: DARK ============================ */
@@ -140,14 +156,41 @@ a:hover { color: var(--primary-h); }
 }
 .header-inner {
   display: flex; align-items: center; gap: 14px;
-  padding: 15px 24px; max-width: 1160px; margin: 0 auto;
+  padding: 7px 24px; max-width: 1160px; margin: 0 auto;
 }
-.brand { display: flex; align-items: center; gap: 11px; font-weight: 650; font-size: 17px; letter-spacing: -.01em; }
+.brand { display: flex; align-items: center; gap: 14px; }
+/* Logo: a standalone book mark on a transparent ground — no tile, border or
+ * shadow. Theme-aware: gold on dark, espresso "ink" on the light bone paper.
+ * Delivered as a background so the app's own light/dark state (not just the OS)
+ * selects the artwork. */
 .brand .logo {
-  width: 32px; height: 32px; border-radius: 9px;
-  background: linear-gradient(150deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #58bd7d));
-  display: grid; place-items: center; font-size: 16px; color: #fff;
-  box-shadow: var(--shadow-sm);
+  width: 84px; height: 84px; flex: none;
+  background: url("/static/favicon-ink.svg?v=29") center / contain no-repeat;
+}
+:root[data-theme="dark"] .brand .logo { background-image: url("/static/favicon-gold.svg?v=29"); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand .logo { background-image: url("/static/favicon-gold.svg?v=29"); }
+}
+/* Wordmark — a big, substantial lockup in the bundled display font. The
+ * leading "the" is a small muted lead-in; the name carries the weight. */
+.brand-word {
+  display: inline-flex; align-items: baseline; gap: 9px;
+  font-family: var(--display); line-height: 1;
+}
+.brand-the {
+  color: var(--text-mut); font-weight: 500; font-size: 24px;
+  letter-spacing: .01em; text-transform: lowercase;
+}
+.brand-name {
+  color: var(--text); font-weight: 700; font-size: 41px;
+  letter-spacing: -.015em;
+}
+.brand-sub {
+  align-self: center; margin-left: 2px;
+  color: var(--text-mut); font-weight: 700; font-size: 12px;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-3); border: 1px solid var(--border-2);
 }
 .grow { flex: 1; }
 .muted { color: var(--text-dim); }
@@ -229,19 +272,19 @@ a:hover { color: var(--primary-h); }
 }
 
 /* ============================ FILTER CHIPS ============================ */
-.filter-bar { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
 .chip {
   cursor: pointer; user-select: none;
   display: inline-flex; align-items: center; gap: 8px;
-  /* Distinctive monospace label — less generic than the default sans. */
-  font-family: var(--team-mono);
-  font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
-  padding: 6px 14px; border-radius: 999px;
+  /* Refined modern-sans label: uppercase, tracked, understated. */
+  font-family: var(--sans);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  padding: 7px 15px; border-radius: 999px;
   border: 1px solid var(--border-2); background: var(--surface); color: var(--text-dim);
   transition: color .14s, background-color .14s, border-color .14s;
 }
 .chip::before {
-  content: ""; width: 8px; height: 8px; border-radius: 50%;
+  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
   background: var(--tc, var(--text-mut));
 }
 .chip:hover { color: var(--text); border-color: color-mix(in srgb, var(--tc, var(--primary)) 55%, var(--border-2)); }
@@ -253,8 +296,8 @@ a:hover { color: var(--primary-h); }
 .chip-all::before {
   background: conic-gradient(#2f9e8f, #6d72c4, #c06f8a, #c39a3f, #2f9e8f);
 }
-/* team filter chips: colorless, uppercase mono */
-.chip-team { font-family: var(--team-mono); text-transform: uppercase; letter-spacing: .05em; font-size: 12px; }
+/* team filter chips: colorless, slightly wider tracking */
+.chip-team { letter-spacing: .12em; }
 .chip-team::before { background: var(--text-mut); }
 .chip-team.active {
   color: var(--text); background: var(--surface-3);
@@ -340,10 +383,27 @@ a:hover { color: var(--primary-h); }
 .btn-sm { padding: 7px 12px; font-size: 13px; }
 .btn-block { width: 100%; }
 .btn-icon {
-  width: 38px; height: 38px; padding: 0; border-radius: var(--radius-sm);
-  background: transparent; border: 1px solid var(--border-2); font-size: 16px;
+  width: 43px; height: 43px; padding: 0; border-radius: var(--radius-sm);
+  background: transparent; border: 1px solid var(--border-2); font-size: 18px;
 }
 .btn-icon:hover { background: var(--surface-3); }
+/* Header action controls — the storybook history button, the theme toggle, and
+ * the Admin / nav links share one height, border and hover treatment so the
+ * row reads as a matched set. Muted by default, brightening on hover. */
+#history-toggle,
+#theme-toggle,
+.header-inner > .btn {
+  height: 46px; border: 1px solid var(--border-2); border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-dim);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+#history-toggle:hover,
+#theme-toggle:hover,
+.header-inner > .btn:hover { background: var(--surface-3); color: var(--text); }
+#history-toggle { width: auto; padding: 0 11px; }
+#theme-toggle   { width: 46px; padding: 0; }
+.header-inner > .btn { padding: 0 16px; font-size: 14px; font-weight: 600; }
+#history-toggle .story-ic { height: 42px; width: auto; display: block; }
 
 /* ============================ BADGES ============================ */
 .badge {
@@ -426,6 +486,36 @@ input:focus, select:focus, textarea:focus {
 .radio-row { display: flex; gap: 18px; flex-wrap: wrap; }
 .radio-row label { display: inline-flex; align-items: center; gap: 7px; font-weight: 400; color: var(--text); margin: 0; }
 .radio-row input { accent-color: var(--primary); }
+/* dynamic checkbox group (multi-select fetched from an API source) */
+.checkbox-group { display: flex; flex-direction: column; gap: 9px; }
+.checkbox-group label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 400; color: var(--text); margin: 0;
+}
+.checkbox-group input { width: auto; accent-color: var(--primary); }
+.checkbox-group .checkbox-selall {
+  font-weight: 600; color: var(--text-dim);
+  padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--border);
+}
+/* searchable combobox (dynamic_select with many options) */
+.combobox { position: relative; }
+.combo-input[disabled] { opacity: .6; cursor: default; }
+.combo-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30;
+  margin: 0; padding: 4px; list-style: none;
+  max-height: 224px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
+}
+.combo-option {
+  padding: 7px 10px; border-radius: var(--radius-xs);
+  font-size: 14px; color: var(--text); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.combo-option.active { background: var(--primary-soft); color: var(--text); }
+.combo-empty { padding: 8px 10px; font-size: 13px; color: var(--text-mut); }
+.combo-error { margin-top: 5px; }
+
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
 .row > * { flex: 1; min-width: 130px; }
 
@@ -437,6 +527,9 @@ input:focus, select:focus, textarea:focus {
   height: 268px; overflow-y: auto; white-space: pre-wrap;
   word-break: break-word; color: var(--term-text);
 }
+/* stdout and stderr both use the default readable color; red (.err) is reserved
+   for a genuine failure line, grey (.sys) for client-side system notes. */
+.terminal .out { color: var(--term-text); }
 .terminal .err { color: var(--term-err); }
 .terminal .sys { color: var(--term-sys); }
 .terminal:empty::before { content: "Waiting for output…"; color: var(--term-sys); }
@@ -501,75 +594,46 @@ body::after {
   pointer-events: none; opacity: 0;
   transition: opacity .4s ease;
 }
-/* ::before — night gradient + faint "milky way" glow + fine, static stars. */
+/* ::before — deep-space base + two soft nebula glows (lime top-right, violet
+ * top-left), matching the "midnight" portal palette. The actual stars are now
+ * painted by the two-layer canvas starfield (js/starfield.js), so the nebula
+ * stays a calm, STATIC backdrop behind the drifting star layers. */
+/* Kept much fainter and wider than the original portal glows: at full strength
+ * they read as neon blobs and flatten the sky. As faint airglow they give the
+ * night some colour temperature while the stars stay the subject. */
 body::before {
-  /* Deep-space base + two soft nebula glows (lime top-right, violet top-left),
-     matching the "midnight" portal palette, with a fine starfield over it. */
   background-color: #05060a;
   background-image:
-    radial-gradient(1px 1px at 30px 40px,   rgba(255,255,255,.90), transparent),
-    radial-gradient(1px 1px at 120px 90px,  rgba(214,226,255,.80), transparent),
-    radial-gradient(1px 1px at 80px 165px,  rgba(255,255,255,.70), transparent),
-    radial-gradient(1.5px 1.5px at 190px 60px, rgba(255,255,255,.75), transparent),
-    radial-gradient(1px 1px at 160px 205px, rgba(200,215,255,.70), transparent),
-    radial-gradient(1px 1px at 215px 150px, rgba(255,255,255,.60), transparent),
-    radial-gradient(circle at 78% 8%,  rgba(185,255,114,.12), transparent 13rem),
-    radial-gradient(circle at 18% 15%, rgba(167,139,250,.12), transparent 22rem);
-  background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat;
-  background-size:
-    240px 240px, 240px 240px, 240px 240px, 240px 240px, 240px 240px, 240px 240px,
-    100% 100%, 100% 100%;
+    radial-gradient(circle at 80% 5%,  rgba(185,255,114,.05),  transparent 22rem),
+    radial-gradient(circle at 15% 13%, rgba(152,142,236,.065), transparent 32rem);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%;
   background-attachment: fixed;
 }
-/* ::after — a sparser layer of brighter stars that gently twinkles. */
-body::after {
-  background-image:
-    radial-gradient(1.5px 1.5px at 60px 50px,   rgba(255,255,255,.95), transparent),
-    radial-gradient(2px 2px at 205px 120px,     rgba(190,210,255,.90), transparent),
-    radial-gradient(1.5px 1.5px at 320px 225px, rgba(255,255,255,.85), transparent),
-    radial-gradient(2px 2px at 130px 300px,     rgba(255,246,214,.80), transparent);
-  background-repeat: repeat;
-  background-size: 380px 380px;
-  background-attachment: fixed;
-}
+/* ::after — reserved layer; stars now come from the canvas so it paints nothing. */
+body::after { background-image: none; }
 
-/* Reveal in dark — explicit theme. */
+/* Reveal the nebula in dark — explicit theme. */
 :root[data-theme="dark"] body::before,
 :root[data-theme="dark"] body::after { opacity: 1; }
-:root[data-theme="dark"] body::after { animation: twinkle 6s ease-in-out infinite; }
 /* Reveal in dark — system dark without an explicit light choice. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) body::before,
   :root:not([data-theme="light"]) body::after { opacity: 1; }
-  :root:not([data-theme="light"]) body::after { animation: twinkle 6s ease-in-out infinite; }
-}
-/* GPU-friendly: animate opacity only. Low amplitude, slow, unobtrusive. */
-@keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
-/* Slow parallax drift of the fine-star layer for a "living" sky. */
-:root[data-theme="dark"] body::before { animation: drift 140s linear infinite; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) body::before { animation: drift 140s linear infinite; }
-}
-@keyframes drift { from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
-  to { background-position: 240px 480px, 240px 480px, 240px 480px, 240px 480px, 240px 480px, 240px 480px, 0 0, 0 0; } }
-@media (prefers-reduced-motion: reduce) {
-  body::after, body::before { animation: none !important; }
 }
 
-/* Dynamic overlay: nebula glow + JS-launched shooting stars (dark mode only). */
-#space-fx {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+/* Night sky (canvas) — painted by js/starfield.js: sparse white stars rendered
+ * as soft glow sprites (hot core + wide halo, additively composited) plus
+ * canvas-drawn shooting stars with tapered, hue-tinted trails. Dark mode only,
+ * fixed and behind all content, never intercepting clicks. Fully procedural
+ * (canvas gradients) — no images, air-gapped. Motion is gated in JS by
+ * prefers-reduced-motion (one static draw, no shooting stars). */
+#starfield {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
   opacity: 0; transition: opacity .4s ease;
 }
-:root[data-theme="dark"] #space-fx { opacity: 1; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #space-fx { opacity: 1; } }
-.shooting-star {
-  position: absolute; height: 2px; border-radius: 2px; opacity: 0;
-  transform-origin: left center; will-change: transform, opacity;
-  background: linear-gradient(90deg, rgba(170,205,255,0), rgba(255,255,255,.95));
-  box-shadow: 0 0 6px rgba(150,190,255,.85), 0 0 2px rgba(255,255,255,.9);
-}
-@media (prefers-reduced-motion: reduce) { #space-fx .shooting-star { display: none; } }
+:root[data-theme="dark"] #starfield { opacity: 1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #starfield { opacity: 1; } }
 
 /* ============================ HISTORY DRAWER (right side) ============================ */
 .drawer {

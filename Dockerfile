@@ -1,28 +1,52 @@
-# OpsPulse — single-container image for air-gapped OpenShift.
-FROM python:3.11-slim
+# syntax=docker/dockerfile:1
+# The Playbook — single-container image for (air-gapped) Kubernetes / OpenShift.
+#
+# Scripts are NOT baked in: the Helm chart renders charts/playbook/scripts into
+# a ConfigMap and mounts it at /scripts, so automation changes ship without an
+# image rebuild.
 
-# Non-root, OpenShift-friendly. The runtime UID is assigned by OpenShift's
-# restricted SCC; group root (0) keeps the app dirs group-writable.
-ENV PYTHONUNBUFFERED=1 \
+ARG PYTHON_VERSION=3.11
+
+# ---- build stage: resolve dependencies into an isolated virtualenv ----------
+FROM python:${PYTHON_VERSION}-slim AS build
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+COPY requirements.txt .
+RUN pip install --require-virtualenv -r requirements.txt
+
+# ---- runtime stage -----------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+ARG VERSION=dev
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="playbook" \
+      org.opencontainers.image.description="Self-service developer portal: one-click, parameterised scripts with live logs" \
+      org.opencontainers.image.source="https://github.com/amir-haskel/devops-dashboard" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
+
+ENV PATH=/opt/venv/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DATA_DIR=/data \
     SCRIPTS_DIR=/scripts
 
+COPY --from=build /opt/venv /opt/venv
+
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
 COPY app ./app
 COPY static ./static
-COPY scripts /scripts
 
-# Create the state dir and make app/data group-writable for arbitrary UIDs.
-RUN mkdir -p /data /scripts \
-    && chgrp -R 0 /app /data /scripts \
-    && chmod -R g=u /app /data /scripts
+# OpenShift runs containers with an arbitrary UID in group 0, so writable paths
+# are group-owned by root and group-writable. App code stays read-only.
+RUN mkdir -p /data/db /data/store /scripts \
+    && chgrp -R 0 /data /scripts \
+    && chmod -R g=u /data /scripts
 
-EXPOSE 8000
 USER 1001
+EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Exec form so uvicorn is PID 1 and receives SIGTERM directly.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

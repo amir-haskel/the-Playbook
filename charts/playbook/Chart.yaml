@@ -1,0 +1,28 @@
+apiVersion: v2
+name: playbook
+description: >-
+  The Playbook — a self-service developer portal that turns operator-owned
+  scripts into one-click, parameterised actions with live log streaming.
+  Scripts are shipped with the chart, rendered into a ConfigMap and mounted
+  into the pod.
+type: application
+# Chart version — bump on every chart change (SemVer).
+version: 0.1.0
+# Version of the application image deployed by default (image.tag falls back to this).
+appVersion: "1.0.0"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/amir-haskel/devops-dashboard
+sources:
+  - https://github.com/amir-haskel/devops-dashboard
+maintainers:
+  - name: Amir Haskel
+    url: https://github.com/amir-haskel
+keywords:
+  - devops
+  - self-service
+  - developer-portal
+  - scripts
+  - openshift
+annotations:
+  artifacthub.io/category: integration-delivery
+  artifacthub.io/containsSecurityUpdates: "false"
